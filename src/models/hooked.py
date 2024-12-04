@@ -102,6 +102,7 @@ class HookedModel:
 
             if len(batch) > max_batch_size:
                 self.logger.info("Reach max_batch_size, start collecting...")
+
                 # collect
                 inputs = self.model.tokenizer.pad(batch, return_tensors="pt")
                 input_ids = inputs["input_ids"]
@@ -146,6 +147,9 @@ class HookedModel:
 
                 # reset
                 batch = []
+
+        if total_collected < total_activations_to_collect:
+            self.logger.warning(f"Only collected {total_collected} tokens")
 
     @property
     def ctx_len(self) -> int:
