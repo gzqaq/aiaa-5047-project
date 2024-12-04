@@ -15,6 +15,7 @@ class Args:
     ds_path: Path
     total_activations: int
     batch_size: int
+    offset: int
 
     @staticmethod
     def from_argparse() -> "Args":
@@ -72,6 +73,14 @@ class Args:
             help="Batch size for model inference",
             metavar="NUM",
         )
+        parser.add_argument(
+            "-offset",
+            "--offset",
+            default=0,
+            type=int,
+            help="Which index to load text data. Defaults to 0, negative integers are treated as 0",
+            metavar="UINT",
+        )
         args = parser.parse_args()
 
         save_dir = Path(args.dest).resolve()
@@ -92,11 +101,12 @@ class Args:
             ds_path=ds_path,
             total_activations=args.total_activations,
             batch_size=args.batch_size,
+            offset=max(args.offset, 0),
         )
 
 
 def main(args: Args) -> None:
-    ds = CulturaXData(args.ds_path)
+    ds = CulturaXData(args.ds_path, offset=args.offset)
     model = HookedModel(
         f"{args.model_path}",
         args.model_name,
