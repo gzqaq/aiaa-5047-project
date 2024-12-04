@@ -11,6 +11,7 @@ def setup_logger(name: str, log_path: Path | None = None) -> Logger:
         log_path = DEFAULT_LOG_PATH
 
     logger = getLogger(name)
+    logger.propagate = False
     logger.setLevel(DEBUG)
     formatter = Formatter("[%(asctime)s][%(name)s][%(levelname)s] - %(message)s")
 
