@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -72,6 +73,7 @@ class HookedModel:
         """
         batch = []
         total_collected = 0
+        tm_beg = time.time()
         for text in text_data:
             tokens = self.model.tokenizer.encode(text)
 
@@ -114,11 +116,17 @@ class HookedModel:
                     self.hooks[lyr].storage = []
 
                 total_collected += n_collected
+                tm_elapsed = time.time() - tm_beg
+                tm_total_est = (
+                    total_activations_to_collect / total_collected * tm_elapsed
+                )
+                tm_wait_est = tm_total_est - tm_elapsed
                 self.logger.info(
                     f"Collected {n_collected} activations for each layer in this batch"
                 )
                 self.logger.info(
-                    f"{total_collected}/{total_activations_to_collect} collected so far"
+                    f"{total_collected}/{total_activations_to_collect} collected so far. "
+                    f"ETW: {tm_wait_est}s"
                 )
 
                 if total_collected >= total_activations_to_collect:
