@@ -1,11 +1,11 @@
 [tool.poetry]
-# name = ""
-# version = "0.0.0"
-# description = ""
-package-mode = false
+name = "src"
+version = "0.0.1"
+description = ""
 authors = ["Ziqin Gong <gongzq0301@gmail.com>"]
 license = "MIT"
 # readme = "README.md"
+packages = [ { include = "src" } ]
 
 [tool.poetry.dependencies]
 python = "^3.10"
