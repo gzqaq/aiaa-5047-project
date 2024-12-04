@@ -31,12 +31,19 @@ class HookedModel:
     ) -> None:
         self.logger = setup_logger("hooked")
 
-        original_model = AutoModelForCausalLM.from_pretrained(
-            model_name_or_path, torch_dtype="auto", device_map="auto"
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        else:
+            device = torch.device("cpu")
+
+        self.logger.info(f"Use device {device}")
+
+        hf_model = AutoModelForCausalLM.from_pretrained(
+            model_name_or_path, torch_dtype="auto"
         )
         tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
         self.model = HookedTransformer.from_pretrained(
-            hf_name, hf_model=original_model, tokenizer=tokenizer
+            hf_name, hf_model=hf_model, tokenizer=tokenizer, device=device
         )
         self.logger.debug("Hooked model initialized")
 
