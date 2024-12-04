@@ -8,12 +8,12 @@ license = "MIT"
 # readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
-jax = "^0.4.35"
-flax = "^0.10.2"
-transformer-lens = "^2.9.1"
-pandas = "^2.2.3"
-fastparquet = "^2024.11.0"
+python = "^3.10"
+jax = {version = "0.4.26", extras = ["cuda12"]}
+flax = "0.8.2"
+chex = "0.1.86"
+optax = "0.2.2"
+
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
