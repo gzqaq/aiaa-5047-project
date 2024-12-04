@@ -89,6 +89,10 @@ class HookedModel:
         for i, text in enumerate(text_data):
             tokens = self.model.tokenizer.encode(text)
 
+            # skip texts that are too long to fit in a batch
+            if len(tokens) >= self.ctx_len * max_batch_size:
+                continue
+
             while len(tokens) > self.ctx_len:
                 batch.append(
                     {
