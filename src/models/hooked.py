@@ -70,6 +70,7 @@ class HookedModel:
         max_batch_size: int,
         total_activations_to_collect: int,
         save_dir: Path | None = None,
+        offset: int = 0,
     ) -> None:
         r"""
         Collect activations on the given text data.
@@ -121,7 +122,8 @@ class HookedModel:
                         self.stored_activations[lyr].append(collected)
                     else:
                         with open(
-                            save_dir / f"lyr{lyr}-n{n_collected}-t{i+1}.npy", "wb"
+                            save_dir / f"lyr{lyr}-n{n_collected}-t{i + offset + 1}.npy",
+                            "wb",
                         ) as fd:
                             np.save(fd, collected)
 

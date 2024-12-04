@@ -113,7 +113,11 @@ def main(args: Args) -> None:
         args.layers,
     )
     model.collect_activations(
-        ds.texts, args.batch_size, args.total_activations, args.save_dir
+        ds.texts,
+        args.batch_size,
+        args.total_activations,
+        args.save_dir,
+        args.offset,
     )
 
 
