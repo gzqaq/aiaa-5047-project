@@ -1,5 +1,6 @@
 from typing import Any, Iterable
 
+import numpy as np
 import torch
 import torch.nn as nn
 from transformer_lens import HookedTransformer
@@ -18,9 +19,11 @@ class StoreActivationHook:
 
 class HookedModel:
     model: HookedTransformer
-    stored_activations: list[torch.Tensor]
+    stored_activations: dict[int, list[np.ndarray]]
 
-    def __init__(self, model_name_or_path: str, hf_name: str) -> None:
+    def __init__(
+        self, model_name_or_path: str, hf_name: str, layers_to_store: list[int]
+    ) -> None:
         original_model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path, torch_dtype="auto", device_map="auto"
         )
@@ -28,8 +31,17 @@ class HookedModel:
         self.model = HookedTransformer.from_pretrained(
             hf_name, hf_model=original_model, tokenizer=tokenizer
         )
-        self.stored_activations = []
-        self.hook = StoreActivationHook()
+
+        self.hooks: dict[int, StoreActivationHook]
+        self._init_hooks_and_storage(layers_to_store)
+
+    def _init_hooks_and_storage(self, layers_to_store: list[int]) -> None:
+        self.hooks = {}
+        self.stored_activations = {}
+
+        for lyr in layers_to_store:
+            self.hooks[lyr] = StoreActivationHook()
+            self.stored_activations[lyr] = []
 
     def collect_activations(
         self, text_data: Iterable[str], max_batch_size: int
@@ -59,8 +71,14 @@ class HookedModel:
                 with torch.inference_mode():
                     self.model(input_ids)
 
-                self.stored_activations.append(self.hook.storage[-1][attn_mask])
-                self.hook.storage = []
+                # store
+                for lyr in self.hooks.keys():
+                    self.stored_activations[lyr].append(
+                        self.hooks[lyr].storage[-1][attn_mask].cpu().numpy()
+                    )
+                    self.hooks[lyr].storage = []
+
+                # reset
                 batch = []
 
     @property
