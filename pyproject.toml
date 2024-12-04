@@ -13,6 +13,8 @@ jax = {version = "0.4.26", extras = ["cuda12"]}
 flax = "0.8.2"
 chex = "0.1.86"
 optax = "0.2.2"
+pandas = "^2.2.3"
+fastparquet = "^2024.11.0"
 
 
 [tool.poetry.group.dev.dependencies]
