@@ -6,6 +6,8 @@ import torch.nn as nn
 from transformer_lens import HookedTransformer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from src.utils.logging import Logger, setup_logger
+
 
 class StoreActivationHook:
     storage: list[torch.Tensor]
@@ -20,10 +22,13 @@ class StoreActivationHook:
 class HookedModel:
     model: HookedTransformer
     stored_activations: dict[int, list[np.ndarray]]
+    logger: Logger
 
     def __init__(
         self, model_name_or_path: str, hf_name: str, layers_to_store: list[int]
     ) -> None:
+        self.logger = setup_logger("hooked")
+
         original_model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path, torch_dtype="auto", device_map="auto"
         )
@@ -31,6 +36,7 @@ class HookedModel:
         self.model = HookedTransformer.from_pretrained(
             hf_name, hf_model=original_model, tokenizer=tokenizer
         )
+        self.logger.debug("Hooked model initialized")
 
         self.hooks: dict[int, StoreActivationHook]
         self._init_hooks_and_storage(layers_to_store)
@@ -42,6 +48,8 @@ class HookedModel:
         for lyr in layers_to_store:
             self.hooks[lyr] = StoreActivationHook()
             self.stored_activations[lyr] = []
+            self.model.blocks[lyr].register_forward_hook(self.hooks[lyr].hook_fn)
+            self.logger.debug(f"Hook on layer {lyr} registered")
 
     def collect_activations(
         self, text_data: Iterable[str], max_batch_size: int
@@ -63,6 +71,7 @@ class HookedModel:
                 batch.append({"input_ids": tokens, "attention_mask": [1] * len(tokens)})
 
             if len(batch) > max_batch_size:
+                self.logger.info("Reach max_batch_size, start collecting...")
                 # collect
                 inputs = self.model.tokenizer.pad(batch, return_tensors="pt")
                 input_ids = inputs["input_ids"]
@@ -72,11 +81,15 @@ class HookedModel:
                     self.model(input_ids)
 
                 # store
+                n_collected = 0
                 for lyr in self.hooks.keys():
                     self.stored_activations[lyr].append(
                         self.hooks[lyr].storage[-1][attn_mask].cpu().numpy()
                     )
                     self.hooks[lyr].storage = []
+                    n_collected = self.stored_activations[lyr][-1].shape[0]
+
+                self.logger.info(f"Collected {n_collected} activations for each layer")
 
                 # reset
                 batch = []
