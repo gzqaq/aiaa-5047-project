@@ -43,7 +43,11 @@ class HookedModel:
         )
         tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
         self.model = HookedTransformer.from_pretrained(
-            hf_name, hf_model=hf_model, tokenizer=tokenizer, device=device
+            hf_name,
+            hf_model=hf_model,
+            tokenizer=tokenizer,
+            device=device,
+            first_n_layers=max(layers_to_store) + 1,
         )
         self.logger.debug("Hooked model initialized")
 
