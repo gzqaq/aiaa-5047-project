@@ -85,7 +85,7 @@ class HookedModel:
         batch = []
         total_collected = 0
         tm_beg = time.time()
-        for text in text_data:
+        for i, text in enumerate(text_data):
             tokens = self.model.tokenizer.encode(text)
 
             while len(tokens) > self.ctx_len:
@@ -120,7 +120,7 @@ class HookedModel:
                         self.stored_activations[lyr].append(collected)
                     else:
                         with open(
-                            save_dir / f"lyr{lyr}-n{n_collected}.npy", "wb"
+                            save_dir / f"lyr{lyr}-n{n_collected}-t{i+1}.npy", "wb"
                         ) as fd:
                             np.save(fd, collected)
 
