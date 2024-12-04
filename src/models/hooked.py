@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any, Iterable
 
 import numpy as np
@@ -52,9 +53,25 @@ class HookedModel:
             self.logger.debug(f"Hook on layer {lyr} registered")
 
     def collect_activations(
-        self, text_data: Iterable[str], max_batch_size: int
+        self,
+        text_data: Iterable[str],
+        max_batch_size: int,
+        total_activations_to_collect: int,
+        save_dir: Path | None = None,
     ) -> None:
+        r"""
+        Collect activations on the given text data.
+
+        Args:
+          text_data: [str]
+          max_batch_size: the maximum number of sequences for model inference
+          total_activations_to_collect: number of activations to collect for each layer
+          save_dir: directory to save collected activations, optional. If not given, all
+            collected activations are stored in `self.stored_activations`. If given, make
+            sure this directory exists, and activations are saved per batch.
+        """
         batch = []
+        total_collected = 0
         for text in text_data:
             tokens = self.model.tokenizer.encode(text)
 
@@ -83,13 +100,30 @@ class HookedModel:
                 # store
                 n_collected = 0
                 for lyr in self.hooks.keys():
-                    self.stored_activations[lyr].append(
-                        self.hooks[lyr].storage[-1][attn_mask].cpu().numpy()
-                    )
-                    self.hooks[lyr].storage = []
-                    n_collected = self.stored_activations[lyr][-1].shape[0]
+                    collected = self.hooks[lyr].storage[-1][attn_mask].cpu().numpy()
+                    n_collected = collected.shape[0]
 
-                self.logger.info(f"Collected {n_collected} activations for each layer")
+                    if save_dir is None:
+                        self.stored_activations[lyr].append(collected)
+                    else:
+                        with open(
+                            save_dir / f"lyr{lyr}-n{n_collected}.npy", "wb"
+                        ) as fd:
+                            np.save(fd, collected)
+
+                    self.hooks[lyr].storage = []
+
+                total_collected += n_collected
+                self.logger.info(
+                    f"Collected {n_collected} activations for each layer in this batch"
+                )
+                self.logger.info(
+                    f"{total_collected}/{total_activations_to_collect} collected so far"
+                )
+
+                if total_collected >= total_activations_to_collect:
+                    self.logger.info(f"{total_activations_to_collect} collected, exit")
+                    return
 
                 # reset
                 batch = []
