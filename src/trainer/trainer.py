@@ -1,4 +1,5 @@
 import random
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -12,6 +13,7 @@ from flax.training.train_state import TrainState
 from src.data.sampler import DataSampler
 from src.models.sae import Losses, SparseAutoencoder, compute_loss
 from src.trainer.config import TrainerConfig
+from src.utils.benchmark import Timer
 from src.utils.logging import setup_logger
 
 
@@ -48,25 +50,46 @@ class Trainer:
             "reconstruction_loss": [],
             "sparsity_loss": [],
             "epoch_end": [],
+            "data_load_tm": [],
+            "update_tm": [],
         }
+        avg_data_timer = Timer()
+        avg_update_timer = Timer()
         while i_epoch <= n_epochs:
             last_idx = self.data_sampler.idx  # detect epoch
+            data_beg = time.perf_counter()
             ds = self.data_sampler.sample()
 
             # rescale to have unit mean square norm (Sec 3.1)
             factor = np.mean(np.linalg.norm(ds, axis=-1))
             buffer = jnp.array(ds / factor)
-            metrics["scale_factor"].append(factor[None])
+            data_elapsed = time.perf_counter() - data_beg
 
+            update_beg = time.perf_counter()
             self.sae, (reconstruction_loss, sparsity_loss) = self.update_fn(
                 self._get_key(), buffer, self.sae
             )
+            update_elapsed = time.perf_counter() - update_beg
+
+            avg_data_timer.update_average(data_elapsed)
+            avg_update_timer.update_average(update_elapsed)
+            self.logger.debug(
+                f"Time for data loading: {data_elapsed:.3f}s, "
+                f"Time for gradient update: {update_elapsed:.3f}s"
+            )
+            metrics["scale_factor"].append(factor[None])
             metrics["reconstruction_loss"].append(np.array(reconstruction_loss)[None])
             metrics["sparsity_loss"].append(np.array(sparsity_loss)[None])
+            metrics["data_load_tm"].append(np.array([data_elapsed]))
+            metrics["update_tm"].append(np.array([update_elapsed]))
 
             if self.data_sampler.idx < last_idx:  # next buffer is a new epoch
                 metrics["epoch_end"].append(np.array([True]))
                 self.logger.info(f"Epoch {i_epoch} completed")
+                self.logger.debug(
+                    f"Avg. time for data loading: {avg_data_timer.avg_tm:.3f}s, "
+                    f"Avg. time for gradient update: {avg_update_timer.avg_tm:.3f}s"
+                )
                 i_epoch += 1
             else:
                 metrics["epoch_end"].append(np.array([False]))
