@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import random
 import time
 from pathlib import Path
@@ -58,12 +59,27 @@ class DataSampler:
 
     def _fill_buffer(self) -> None:
         load_beg = time.perf_counter()
-        while self.buffer.shape[0] < self._preload_num and self.idx < len(self):
-            next_arr = np.load(self.data_files[self.idx])
-            self.buffer = np.concatenate([self.buffer, next_arr], axis=0)
+
+        files_to_load = []
+        cur_num = self.buffer.shape[0]
+        while cur_num < self._preload_num and self.idx < len(self):
+            fpath = self.data_files[self.idx]
+            n_inc = fpath.stem.split("-")[1]  # l{}-n{}-t{}.npy
+            inc = int(n_inc[1:])
+            files_to_load.append(self.data_files[self.idx])
+            cur_num += inc
             self.idx += 1
-        load_elapsed = time.perf_counter() - load_beg
-        self.logger.debug(f"Preload completed after {load_elapsed:.3f}s")
+
+        n_files = len(files_to_load)
+        if n_files > 0:
+            self.logger.debug(f"Load {n_files} files using multiprocessing...")
+            with mp.Pool(min(mp.cpu_count(), n_files)) as p:
+                arrays = [self.buffer] + p.map(np.load, files_to_load)
+
+            self.buffer = np.concatenate(arrays, axis=0)
+
+            load_elapsed = time.perf_counter() - load_beg
+            self.logger.debug(f"Preload completed after {load_elapsed:.3f}s")
 
     def _locate_data_files(self, data_dir: Path) -> None:
         if "/" in self.metadata.model_name:  # e.g. Qwen/Qwen2-7B
