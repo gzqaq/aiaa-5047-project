@@ -1,5 +1,6 @@
 import random
 from pathlib import Path
+from typing import Callable
 
 import chex
 import jax.numpy as jnp
@@ -8,7 +9,7 @@ import optax as ox
 from flax.training.train_state import TrainState
 
 from src.data.sampler import DataSampler
-from src.models.sae import SparseAutoencoder
+from src.models.sae import Losses, SparseAutoencoder, compute_loss
 from src.trainer.config import TrainerConfig
 from src.utils.logging import setup_logger
 
@@ -33,6 +34,51 @@ class Trainer:
         self.sae: TrainState
         self.lmbda_scheduler: ox.Schedule
         self._init_sae()
+
+        self.update_fn: Callable[
+            [chex.PRNGKey, jax.Array, TrainState], tuple[TrainState, Losses]
+        ]
+        self.make_train()
+
+    def make_train(self) -> None:
+        config = self.config
+
+        @jax.jit
+        def update_on_buffer(
+            key: chex.PRNGKey, buffer: jax.Array, train_state: TrainState
+        ) -> tuple[TrainState, Losses]:
+            def update_on_minibatch(
+                carry: TrainState, batch: jax.Array
+            ) -> tuple[TrainState, Losses]:
+                def loss_fn(params, x):
+                    x_reconstructed, pre_act, thres = carry.apply_fn(params, x)
+                    return compute_loss(
+                        x,
+                        x_reconstructed,
+                        pre_act,
+                        thres,
+                        self.lmbda_scheduler(carry.step),
+                    )
+
+                grads, losses = jax.grad(loss_fn, has_aux=True)(carry.params, batch)
+                carry = carry.apply_gradients(grads=grads)
+
+                # normalize learned features (Sec 3.2)
+                W_dec = carry.params["params"]["W_dec"]
+                normalized = W_dec / jnp.linalg.norm(W_dec, axis=1, keepdims=True)
+                carry.params["params"]["W_dec"] = normalized
+
+                return carry, losses
+
+            shuffled = jax.random.permutation(key, buffer, axis=0)
+            minibatches = shuffled.reshape(-1, config.batch_size, shuffled.shape[-1])
+            train_state, losses = jax.lax.scan(
+                update_on_minibatch, train_state, minibatches
+            )
+
+            return train_state, losses
+
+        self.update_fn = update_on_buffer
 
     def _init_sae(self) -> None:
         config = self.config
