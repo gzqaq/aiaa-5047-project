@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Callable
 
 import chex
+import flax.serialization as serl
 import jax.numpy as jnp
 import jax.random
 import numpy as np
@@ -45,7 +46,7 @@ class Trainer:
 
     def train(self, n_epochs: int) -> dict[str, np.ndarray]:
         i_epoch = 1
-        metrics: dict[str, list[np.ndarray]] = {
+        metrics: dict[str, list[np.ndarray]] = {  # TODO: dataclass
             "scale_factor": [],
             "reconstruction_loss": [],
             "sparsity_loss": [],
@@ -96,6 +97,16 @@ class Trainer:
 
         res = {k: np.concatenate(v, axis=0) for k, v in metrics.items()}
         return res
+
+    def save_results(self, train_res: dict[str, np.ndarray], save_dir: Path) -> None:
+        config = self.config
+        lang_info = "-".join(config.metadata.lang)
+        fname = f"l{config.metadata.layer}-d{config.hid_feats}-{lang_info}.bin"
+        save_path = save_dir / fname
+
+        with open(save_path, "wb") as fd:
+            fd.write(serl.to_bytes({"variables": self.sae.params, "train": train_res}))
+            self.logger.info(f"Parameters and training results saved to {save_path}")
 
     def make_train(self) -> None:
         config = self.config
