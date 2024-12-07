@@ -10,8 +10,8 @@ from src.models.hooked import HookedModel
 class Args:
     save_dir: Path
     layers: list[int]
-    model_path: Path
     model_name: str
+    model_path: Path | None
     ds_path: Path
     total_activations: int
     batch_size: int
@@ -35,20 +35,20 @@ class Args:
             metavar="LAYER",
         )
         parser.add_argument(
-            "-model",
-            "--model-path",
-            required=True,
-            type=str,
-            help="Path to model ckpt dir (a dir that contains config.json)",
-            metavar="PATH",
-        )
-        parser.add_argument(
             "-name",
             "--model-name",
             required=True,
             type=str,
-            help="HF name for the model. Required by transformer_lens",
+            help="HF name of the model",
             metavar="STRING",
+        )
+        parser.add_argument(
+            "-model",
+            "--model-path",
+            required=False,
+            type=str,
+            help="Path to model ckpt dir (a dir that contains config.json). Optional",
+            metavar="PATH",
         )
         parser.add_argument(
             "-ds",
@@ -96,8 +96,11 @@ class Args:
         if not save_dir.exists():
             save_dir.mkdir(parents=True)
 
-        model_path = Path(args.model_path).resolve()
-        assert model_path.exists(), f"{model_path} doesn't exist!"
+        if args.model_path is None:
+            model_path = None
+        else:
+            model_path = Path(args.model_path).resolve()
+            assert model_path.exists(), f"{model_path} doesn't exist!"
 
         ds_path = Path(args.ds_path).resolve()
         assert ds_path.exists(), f"{ds_path} doesn't exist!"
@@ -110,8 +113,8 @@ class Args:
         return Args(
             save_dir=save_dir,
             layers=args.layers,
-            model_path=model_path,
             model_name=args.model_name,
+            model_path=model_path,
             ds_path=ds_path,
             total_activations=args.total_activations,
             batch_size=args.batch_size,
@@ -123,9 +126,9 @@ class Args:
 def main(args: Args) -> None:
     ds = CulturaXData(args.ds_path, offset=args.offset)
     model = HookedModel(
-        f"{args.model_path}",
         args.model_name,
         args.layers,
+        args.model_path,
         args.log_path,
     )
     model.collect_activations(

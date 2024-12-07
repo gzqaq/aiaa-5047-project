@@ -28,9 +28,9 @@ class HookedModel:
 
     def __init__(
         self,
-        model_name_or_path: str,
         hf_name: str,
         layers_to_store: list[int],
+        model_path: Path | None = None,
         log_path: Path | None = None,
     ) -> None:
         self.logger = setup_logger("hooked", log_path)
@@ -41,6 +41,11 @@ class HookedModel:
             device = torch.device("cpu")
 
         self.logger.info(f"Use device {device}")
+
+        if model_path is None:
+            model_name_or_path = hf_name
+        else:
+            model_name_or_path = f"{model_path}"
 
         hf_model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path, torch_dtype="auto"
