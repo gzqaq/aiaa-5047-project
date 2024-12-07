@@ -1,9 +1,9 @@
 #!/bin/bash
 
-PROJECT_HOME=$(cd $(dirname $0)/..; pwd)
+PROJECT_HOME=$(cd $(dirname $0)/../..; pwd)
 DOCKER_PROJECT="/aiaa-5047"
 IMAGE_NAME="aiaa-5047:base"
-PY_SCRIPT="scripts/collect-activations.py"
+PY_SCRIPT="scripts/train-sae.py"
 
 HELP_MSG="
 Usage:  $0 [OPTIONS] [ARG...]

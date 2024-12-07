@@ -2,7 +2,7 @@
 
 set -x  # print commands and their arguments as they are executed
 
-PROJECT_PATH=$(cd $(dirname $0)/..; pwd)  # project root
+PROJECT_PATH=$(cd $(dirname $0)/../..; pwd)  # project root
 IMAGE_NAME="aiaa-5047:base"
 
 docker run -it --rm --gpus all --shm-size="10g" --cap-add=SYS_ADMIN \
