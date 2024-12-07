@@ -1,6 +1,8 @@
 import random
 from pathlib import Path
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 from src.trainer.config import Metadata
@@ -20,6 +22,24 @@ class DataSampler:
         self.buffer: np.ndarray
         self.idx: int
         self.reset()
+
+    def sample(self) -> jax.Array:
+        n_batches = self.buffer_size // self.batch_size
+        total_num = n_batches * self.batch_size
+        samples = self.buffer[:total_num]
+
+        # fill buffer
+        self.buffer = self.buffer[total_num:]
+        while self.buffer.shape[0] < self.buffer_size and self.idx < len(self):
+            next_arr = np.load(self.data_files[self.idx])
+            self.buffer = np.concatenate([self.buffer, next_arr], axis=0)
+            self.idx += 1
+
+        # reset if not enough
+        if self.idx >= len(self) and self.buffer.shape[0] < self.buffer_size:
+            self.reset()
+
+        return jnp.array(samples)
 
     def reset(self) -> None:
         random.shuffle(self.data_files)
