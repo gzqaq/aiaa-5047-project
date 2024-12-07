@@ -100,5 +100,7 @@ class DataSampler:
             self.data_files.extend(found_paths)
             self.logger.info(f"Found {len(found_paths)} files in {dir_path}")
 
+        assert len(self.data_files) > 0, "Found no data file!"
+
     def __len__(self) -> int:
         return len(self.data_files)
