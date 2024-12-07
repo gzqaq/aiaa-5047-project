@@ -77,7 +77,7 @@ class HookedModel:
         self,
         text_data: Iterable[str],
         max_batch_size: int,
-        total_activations_to_collect: int,
+        target_num: int,
         save_dir: Path | None = None,
         offset: int = 0,
     ) -> None:
@@ -87,7 +87,7 @@ class HookedModel:
         Args:
           text_data: [str]
           max_batch_size: the maximum number of sequences for model inference
-          total_activations_to_collect: number of activations to collect for each layer
+          target_num: number of activations to collect for each layer
           save_dir: directory to save collected activations, optional. If not given, all
             collected activations are stored in `self.stored_activations`. If given, make
             sure this directory exists, and activations are saved per batch.
@@ -103,12 +103,11 @@ class HookedModel:
                 continue
 
             while len(tokens) > self.ctx_len:
-                batch.append(
-                    {
-                        "input_ids": tokens[: self.ctx_len],
-                        "attention_mask": [1] * self.ctx_len,
-                    }
-                )
+                inputs = {
+                    "input_ids": tokens[: self.ctx_len],
+                    "attention_mask": [1] * self.ctx_len,
+                }
+                batch.append(inputs)
                 tokens = tokens[self.ctx_len :]
 
             if len(tokens) > 0:
@@ -126,45 +125,63 @@ class HookedModel:
                     self.model(input_ids)
 
                 # store
-                n_collected = 0
-                for lyr in self.hooks.keys():
-                    collected = self.hooks[lyr].storage[-1][attn_mask].cpu().numpy()
-                    n_collected = collected.shape[0]
-
-                    if save_dir is None:
-                        self.stored_activations[lyr].append(collected)
-                    else:
-                        with open(
-                            save_dir / f"lyr{lyr}-n{n_collected}-t{i + offset + 1}.npy",
-                            "wb",
-                        ) as fd:
-                            np.save(fd, collected)
-
-                    self.hooks[lyr].storage = []
-
+                n_collected = self.store_collected(attn_mask, save_dir, i + offset)
                 total_collected += n_collected
-                tm_elapsed = time.time() - tm_beg
-                tm_total_est = (
-                    total_activations_to_collect / total_collected * tm_elapsed
-                )
-                tm_wait_est = tm_total_est - tm_elapsed
-                self.logger.info(
-                    f"Collected {n_collected} activations for each layer in this batch"
-                )
-                self.logger.info(
-                    f"{total_collected}/{total_activations_to_collect} collected so far. "
-                    f"ETW: {tm_wait_est}s"
-                )
 
-                if total_collected >= total_activations_to_collect:
-                    self.logger.info(f"{total_activations_to_collect} collected, exit")
+                tm_elapsed = time.time() - tm_beg
+                self.log_batch(n_collected, total_collected, target_num, tm_elapsed)
+
+                if total_collected >= target_num:
+                    self.logger.info(f"{target_num} collected, exit")
                     return
 
                 # reset
                 batch = []
 
-        if total_collected < total_activations_to_collect:
+        if total_collected < target_num:
             self.logger.warning(f"Only collected {total_collected} tokens")
+
+    def store_collected(
+        self, attn_mask: torch.Tensor, save_dir: Path | None, text_idx: int
+    ) -> int:
+        mask = attn_mask.cpu().numpy()
+        # Qwen tokenizer seems not to have BOS, and tokenizer.encode doesn't insert BOS and EOS, so
+        # there is no need to mask BOS here.
+        # mask[..., 0] = False
+
+        n_collected = 0
+        for lyr, hook in self.hooks.items():
+            activations = hook.storage[-1].cpu().numpy()
+            collected = activations[mask]
+            n_collected = collected.shape[0]
+
+            if save_dir is None:
+                self.stored_activations[lyr].append(collected)
+            else:
+                with open(
+                    save_dir / f"l{lyr}-n{n_collected}-t{text_idx + 1}.npy", "wb"
+                ) as fd:
+                    np.save(fd, collected)
+
+            hook.storage = []
+
+        return n_collected
+
+    def log_batch(
+        self,
+        n_collected: int,
+        total_collected: int,
+        total_to_collect: int,
+        tm_elapsed: float,
+    ) -> None:
+        tm_total_est = total_to_collect / total_collected * tm_elapsed
+        tm_wait_est = tm_total_est - tm_elapsed
+
+        self.logger.info(f"Collected {n_collected} activations for each layer")
+        self.logger.info(
+            f"{total_collected}/{total_to_collect} collected so far. "
+            f"ETW: {tm_wait_est}s"
+        )
 
     @property
     def ctx_len(self) -> int:
