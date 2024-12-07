@@ -24,6 +24,7 @@ class Trainer:
         self,
         config: TrainerConfig,
         data_dir: Path,
+        preload_factor: int,
         log_path: Path | None = None,
         seed: int = 0,
     ) -> None:
@@ -34,7 +35,7 @@ class Trainer:
         self._init_rng(seed)
 
         self.data_sampler: DataSampler
-        self._init_data_sampler(data_dir, log_path)
+        self._init_data_sampler(data_dir, preload_factor, log_path)
 
         self.sae: TrainState
         self.lmbda_scheduler: ox.Schedule
@@ -197,10 +198,17 @@ class Trainer:
         random.seed(seed)
         self._key = jax.random.key(seed)
 
-    def _init_data_sampler(self, data_dir: Path, log_path: Path | None = None) -> None:
+    def _init_data_sampler(
+        self, data_dir: Path, preload_factor: int, log_path: Path | None = None
+    ) -> None:
         config = self.config
         self.data_sampler = DataSampler(
-            data_dir, config.metadata, config.batch_size, config.buffer_size, log_path
+            data_dir,
+            config.metadata,
+            config.batch_size,
+            config.buffer_size,
+            preload_factor,
+            log_path,
         )
 
     def _get_key(self) -> chex.PRNGKey:

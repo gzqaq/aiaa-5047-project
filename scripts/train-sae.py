@@ -17,6 +17,7 @@ class Args:
     sparsity_coef: float
     batch_size: int
     buffer_size: int
+    preload_factor: int
     n_epochs: int
     log_path: Path | None
 
@@ -102,6 +103,14 @@ class Args:
             metavar="UINT",
         )
         parser.add_argument(
+            "-preload",
+            "--preload-factor",
+            required=True,
+            type=int,
+            help="Preload UINT x BUF_SIZE into CPU memory",
+            metavar="UINT",
+        )
+        parser.add_argument(
             "-epochs",
             "--n-epochs",
             required=True,
@@ -142,6 +151,7 @@ class Args:
             sparsity_coef=args.sparsity_coef,
             batch_size=args.batch_size,
             buffer_size=args.buffer_size,
+            preload_factor=args.preload_factor,
             n_epochs=args.n_epochs,
             log_path=log_path,
         )
@@ -155,7 +165,9 @@ def main(args: Args) -> None:
         batch_size=args.batch_size,
         buffer_size=args.buffer_size,
     )
-    trainer = Trainer(config, args.data_dir, args.log_path, args.seed)
+    trainer = Trainer(
+        config, args.data_dir, args.preload_factor, args.log_path, args.seed
+    )
     res = trainer.train(args.n_epochs)
     trainer.save_results(res, args.save_dir)
 

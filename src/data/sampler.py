@@ -1,4 +1,5 @@
 import random
+import time
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +15,7 @@ class DataSampler:
         metadata: Metadata,
         batch_size: int,
         buffer_size: int,
+        preload_factor: int,
         log_path: Path | None = None,
     ) -> None:
         self.logger = setup_logger("sampler", log_path)
@@ -21,6 +23,7 @@ class DataSampler:
         self.metadata = metadata
         self.batch_size = batch_size
         self.buffer_size = buffer_size
+        self._preload_num = buffer_size * preload_factor
 
         self.data_files: list[Path]
         self._locate_data_files(data_dir)
@@ -36,7 +39,9 @@ class DataSampler:
 
         # fill buffer
         self.buffer = self.buffer[total_num:]
-        self._fill_buffer()
+        if self.buffer.shape[0] < total_num:
+            self.logger.info("Not enough data for next batch, preload")
+            self._fill_buffer()
 
         # reset if not enough
         if self.idx >= len(self) and self.buffer.shape[0] < self.buffer_size:
@@ -52,10 +57,13 @@ class DataSampler:
         self._fill_buffer()
 
     def _fill_buffer(self) -> None:
-        while self.buffer.shape[0] < self.buffer_size and self.idx < len(self):
+        load_beg = time.perf_counter()
+        while self.buffer.shape[0] < self._preload_num and self.idx < len(self):
             next_arr = np.load(self.data_files[self.idx])
             self.buffer = np.concatenate([self.buffer, next_arr], axis=0)
             self.idx += 1
+        load_elapsed = time.perf_counter() - load_beg
+        self.logger.debug(f"Preload completed after {load_elapsed:.3f}s")
 
     def _locate_data_files(self, data_dir: Path) -> None:
         if "/" in self.metadata.model_name:  # e.g. Qwen/Qwen2-7B
