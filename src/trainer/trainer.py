@@ -61,6 +61,7 @@ class Trainer:
         avg_load_timer = Timer()
         avg_update_timer = Timer()
         tm_beg = time.time()
+        activations_cnt = 0
         while i_epoch <= n_epochs:
             last_idx = self.data_sampler.idx  # detect epoch
             sample_beg = time.perf_counter()
@@ -82,11 +83,15 @@ class Trainer:
             avg_sample_timer.update_average(sample_elapsed)
             avg_load_timer.update_average(load_elapsed)
             avg_update_timer.update_average(update_elapsed)
+            activations_cnt += ds.shape[0]
+            avg_speed = int(activations_cnt / (time.time() - tm_beg))
+            self.logger.info(f"Avg. speed: {avg_speed} activations per second")
             self.logger.debug(
                 f"Time for data sampling: {sample_elapsed:.3f}s, "
                 f"Time for data loading: {load_elapsed:.3f}s, "
                 f"Time for gradient update: {update_elapsed:.3f}s"
             )
+
             metrics["scale_factor"].append(factor[None])
             metrics["reconstruction_loss"].append(np.array(reconstruction_loss)[None])
             metrics["sparsity_loss"].append(np.array(sparsity_loss)[None])
