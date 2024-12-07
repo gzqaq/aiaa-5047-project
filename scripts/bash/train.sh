@@ -58,4 +58,5 @@ docker run -d -it --rm --gpus all --shm-size="10g" --cap-add=SYS_ADMIN \
        --mount type=bind,src=$HOME/.cache,dst=/root/.cache \
        --env PYTHONPATH=/aiaa-5047 \
        --env CUDA_VISIBLE_DEVICES=$CUDA_DEVICE \
+       --env XLA_PYTHON_CLIENT_PREALLOCATE=false \
        $IMAGE_NAME $DOCKER_CMD
