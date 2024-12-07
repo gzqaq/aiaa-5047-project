@@ -1,5 +1,4 @@
-from typing import Any
-
+from src.data.sampler import DataSampler
 from src.models.sae import SparseAutoencoder
 from src.trainer.config import TrainerConfig
 
@@ -10,7 +9,7 @@ class Trainer:
     def __init__(self, config: TrainerConfig) -> None:
         self.config = config
 
-        self.data_sampler: Any
+        self.data_sampler: DataSampler
         self._init_data_sampler()
 
         self.sae: SparseAutoencoder
