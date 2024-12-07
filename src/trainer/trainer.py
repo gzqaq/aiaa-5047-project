@@ -166,7 +166,7 @@ class Trainer:
 
         sae_def = SparseAutoencoder(config.hid_feats, config.use_pre_enc_bias)
 
-        variables = sae_def.init(self._get_key(), self.data_sampler.buffer)
+        variables = sae_def.init(self._get_key(), self.data_sampler.buffer[:1])
 
         tx, self.lmbda_scheduler = self._init_optim(
             config.learning_rate, config.sparsity_coef
