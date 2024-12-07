@@ -1,9 +1,8 @@
 from logging import (DEBUG, INFO, FileHandler, Formatter, Logger,
                      StreamHandler, getLogger)
 from pathlib import Path
-from tempfile import gettempdir
 
-DEFAULT_LOG_PATH = Path(gettempdir()) / "aiaa-5047-project.log"
+DEFAULT_LOG_PATH = Path("~/.cache/").expanduser() / "aiaa-5047-project.log"
 
 
 def setup_logger(name: str, log_path: Path | None = None) -> Logger:

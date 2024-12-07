@@ -27,9 +27,13 @@ class HookedModel:
     logger: Logger
 
     def __init__(
-        self, model_name_or_path: str, hf_name: str, layers_to_store: list[int]
+        self,
+        model_name_or_path: str,
+        hf_name: str,
+        layers_to_store: list[int],
+        log_path: Path | None = None,
     ) -> None:
-        self.logger = setup_logger("hooked")
+        self.logger = setup_logger("hooked", log_path)
 
         if torch.cuda.is_available():
             device = torch.device("cuda")

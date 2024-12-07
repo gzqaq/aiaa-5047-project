@@ -16,6 +16,7 @@ class Args:
     total_activations: int
     batch_size: int
     offset: int
+    log_path: Path | None
 
     @staticmethod
     def from_argparse() -> "Args":
@@ -81,6 +82,14 @@ class Args:
             help="Which index to load text data. Defaults to 0, negative integers are treated as 0",
             metavar="UINT",
         )
+        parser.add_argument(
+            "-log",
+            "--log",
+            required=False,
+            type=str,
+            help="Path to log file",
+            metavar="PATH",
+        )
         args = parser.parse_args()
 
         save_dir = Path(args.dest).resolve()
@@ -93,6 +102,11 @@ class Args:
         ds_path = Path(args.ds_path).resolve()
         assert ds_path.exists(), f"{ds_path} doesn't exist!"
 
+        if args.log is None:
+            log_path = None
+        else:
+            log_path = Path(args.log).resolve()
+
         return Args(
             save_dir=save_dir,
             layers=args.layers,
@@ -102,6 +116,7 @@ class Args:
             total_activations=args.total_activations,
             batch_size=args.batch_size,
             offset=max(args.offset, 0),
+            log_path=log_path,
         )
 
 
@@ -111,6 +126,7 @@ def main(args: Args) -> None:
         f"{args.model_path}",
         args.model_name,
         args.layers,
+        args.log_path,
     )
     model.collect_activations(
         ds.texts,
