@@ -10,6 +10,7 @@ from flax.training.train_state import TrainState
 from src.data.sampler import DataSampler
 from src.models.sae import SparseAutoencoder
 from src.trainer.config import TrainerConfig
+from src.utils.logging import setup_logger
 
 
 class Trainer:
@@ -20,6 +21,7 @@ class Trainer:
         log_path: Path | None = None,
         seed: int = 0,
     ) -> None:
+        self.logger = setup_logger("trainer", log_path)
         self.config = config
 
         self._key: chex.PRNGKey
@@ -44,6 +46,7 @@ class Trainer:
         )
 
         self.sae = TrainState.create(apply_fn=sae_def.apply, params=variables, tx=tx)
+        self.logger.info("Initialized train_state and scheduler for sparsity coef")
 
     def _init_optim(
         self, learning_rate: float, sparsity_coef: float
@@ -63,6 +66,7 @@ class Trainer:
         return tx, lmbda_scheduler
 
     def _init_rng(self, seed: int) -> None:
+        self.logger.info(f"Set seed {seed}")
         random.seed(seed)
         self._key = jax.random.key(seed)
 
