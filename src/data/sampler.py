@@ -1,8 +1,6 @@
 import random
 from pathlib import Path
 
-import jax
-import jax.numpy as jnp
 import numpy as np
 
 from src.trainer.config import Metadata
@@ -31,7 +29,7 @@ class DataSampler:
         self.idx: int
         self.reset()
 
-    def sample(self) -> jax.Array:
+    def sample(self) -> np.ndarray:
         n_batches = self.buffer_size // self.batch_size
         total_num = n_batches * self.batch_size
         samples = self.buffer[:total_num]
@@ -45,7 +43,7 @@ class DataSampler:
             self.logger.info("Run out of data for this epoch. Reset")
             self.reset()
 
-        return jnp.array(samples)
+        return samples
 
     def reset(self) -> None:
         random.shuffle(self.data_files)

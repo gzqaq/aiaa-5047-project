@@ -5,6 +5,7 @@ from typing import Callable
 import chex
 import jax.numpy as jnp
 import jax.random
+import numpy as np
 import optax as ox
 from flax.training.train_state import TrainState
 
@@ -39,6 +40,39 @@ class Trainer:
             [chex.PRNGKey, jax.Array, TrainState], tuple[TrainState, Losses]
         ]
         self.make_train()
+
+    def train(self, n_epochs: int) -> dict[str, np.ndarray]:
+        i_epoch = 1
+        metrics: dict[str, list[np.ndarray]] = {
+            "scale_factor": [],
+            "reconstruction_loss": [],
+            "sparsity_loss": [],
+            "epoch_end": [],
+        }
+        while i_epoch <= n_epochs:
+            last_idx = self.data_sampler.idx  # detect epoch
+            ds = self.data_sampler.sample()
+
+            # rescale to have unit mean square norm (Sec 3.1)
+            factor = np.mean(np.linalg.norm(ds, axis=-1))
+            buffer = jnp.array(ds / factor)
+            metrics["scale_factor"].append(factor[None])
+
+            self.sae, (reconstruction_loss, sparsity_loss) = self.update_fn(
+                self._get_key(), buffer, self.sae
+            )
+            metrics["reconstruction_loss"].append(np.array(reconstruction_loss)[None])
+            metrics["sparsity_loss"].append(np.array(sparsity_loss)[None])
+
+            if self.data_sampler.idx < last_idx:  # next buffer is a new epoch
+                metrics["epoch_end"].append(np.array([True]))
+                self.logger.info(f"Epoch {i_epoch} completed")
+                i_epoch += 1
+            else:
+                metrics["epoch_end"].append(np.array([False]))
+
+        res = {k: np.concatenate(v, axis=0) for k, v in metrics.items()}
+        return res
 
     def make_train(self) -> None:
         config = self.config
