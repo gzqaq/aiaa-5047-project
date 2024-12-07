@@ -38,10 +38,7 @@ class DataSampler:
 
         # fill buffer
         self.buffer = self.buffer[total_num:]
-        while self.buffer.shape[0] < self.buffer_size and self.idx < len(self):
-            next_arr = np.load(self.data_files[self.idx])
-            self.buffer = np.concatenate([self.buffer, next_arr], axis=0)
-            self.idx += 1
+        self._fill_buffer()
 
         # reset if not enough
         if self.idx >= len(self) and self.buffer.shape[0] < self.buffer_size:
@@ -54,7 +51,9 @@ class DataSampler:
         random.shuffle(self.data_files)
         self.buffer = np.load(self.data_files[0])
         self.idx = 1
+        self._fill_buffer()
 
+    def _fill_buffer(self) -> None:
         while self.buffer.shape[0] < self.buffer_size and self.idx < len(self):
             next_arr = np.load(self.data_files[self.idx])
             self.buffer = np.concatenate([self.buffer, next_arr], axis=0)
