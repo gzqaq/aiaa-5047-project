@@ -6,12 +6,20 @@ import jax.numpy as jnp
 import numpy as np
 
 from src.trainer.config import Metadata
+from src.utils.logging import setup_logger
 
 
 class DataSampler:
     def __init__(
-        self, data_dir: Path, metadata: Metadata, batch_size: int, buffer_size: int
+        self,
+        data_dir: Path,
+        metadata: Metadata,
+        batch_size: int,
+        buffer_size: int,
+        log_path: Path | None = None,
     ) -> None:
+        self.logger = setup_logger("sampler", log_path)
+
         self.metadata = metadata
         self.batch_size = batch_size
         self.buffer_size = buffer_size
@@ -37,6 +45,7 @@ class DataSampler:
 
         # reset if not enough
         if self.idx >= len(self) and self.buffer.shape[0] < self.buffer_size:
+            self.logger.info("Run out of data for this epoch. Reset")
             self.reset()
 
         return jnp.array(samples)
@@ -64,6 +73,7 @@ class DataSampler:
         data_dir = data_dir / dir_name
         glob_pattern = f"l{self.metadata.layer}-*.npy"
         self.data_files = list(data_dir.glob(glob_pattern))
+        self.logger.info(f"Found {len(self)} files in {data_dir}")
 
     def __len__(self) -> int:
         return len(self.data_files)
