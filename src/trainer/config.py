@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 class Metadata:
     model_name: str
     layer: int
-    lang: str  # en, zh
+    lang: list[str]  # en, zh
 
 
 @dataclass

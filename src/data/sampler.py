@@ -68,11 +68,14 @@ class DataSampler:
             model_name = self.metadata.model_name
         model_name = model_name.lower()  # e.g. we want "qwen2-7b"
 
-        dir_name = f"{model_name}-{self.metadata.lang}"  # e.g. we want "qwen2-7b-zh"
-        data_dir = data_dir / dir_name
-        glob_pattern = f"l{self.metadata.layer}-*.npy"
-        self.data_files = list(data_dir.glob(glob_pattern))
-        self.logger.info(f"Found {len(self)} files in {data_dir}")
+        self.data_files = []
+        for lang in self.metadata.lang:
+            dir_name = f"{model_name}-{lang}"  # e.g. we want "qwen2-7b-zh"
+            dir_path = data_dir / dir_name
+            glob_pattern = f"l{self.metadata.layer}-*.npy"
+            found_paths = list(dir_path.glob(glob_pattern))
+            self.data_files.extend(found_paths)
+            self.logger.info(f"Found {len(found_paths)} files in {dir_path}")
 
     def __len__(self) -> int:
         return len(self.data_files)
