@@ -1,3 +1,4 @@
+import datetime
 import random
 import time
 from pathlib import Path
@@ -56,6 +57,7 @@ class Trainer:
         }
         avg_data_timer = Timer()
         avg_update_timer = Timer()
+        tm_beg = time.time()
         while i_epoch <= n_epochs:
             last_idx = self.data_sampler.idx  # detect epoch
             data_beg = time.perf_counter()
@@ -86,7 +88,11 @@ class Trainer:
 
             if self.data_sampler.idx < last_idx:  # next buffer is a new epoch
                 metrics["epoch_end"].append(np.array([True]))
-                self.logger.info(f"Epoch {i_epoch} completed")
+                tm_elapsed = time.time() - tm_beg
+                etw = datetime.timedelta(seconds=tm_elapsed / i_epoch * n_epochs)
+                self.logger.info(
+                    f"Epoch {i_epoch} completed in {tm_elapsed:.3f}s. ETW: {etw}"
+                )
                 self.logger.debug(
                     f"Avg. time for data loading: {avg_data_timer.avg_tm:.3f}s, "
                     f"Avg. time for gradient update: {avg_update_timer.avg_tm:.3f}s"
