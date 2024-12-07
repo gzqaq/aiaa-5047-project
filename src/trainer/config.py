@@ -2,6 +2,13 @@ from dataclasses import dataclass, field
 
 
 @dataclass
+class Metadata:
+    model_name: str
+    layer: int
+    lang: str  # en, zh
+
+
+@dataclass
 class AdamConfig:
     beta_1: float = 0.0
     beta_2: float = 0.999
@@ -10,6 +17,7 @@ class AdamConfig:
 
 @dataclass
 class TrainerConfig:
+    metadata: Metadata
     hid_feats: int
     sparsity_coef: float
     batch_size: int
