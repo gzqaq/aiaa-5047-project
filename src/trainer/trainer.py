@@ -52,21 +52,25 @@ class Trainer:
             "reconstruction_loss": [],
             "sparsity_loss": [],
             "epoch_end": [],
-            "data_load_tm": [],
+            "sample_tm": [],
+            "load_tm": [],
             "update_tm": [],
         }
-        avg_data_timer = Timer()
+        avg_sample_timer = Timer()
+        avg_load_timer = Timer()
         avg_update_timer = Timer()
         tm_beg = time.time()
         while i_epoch <= n_epochs:
             last_idx = self.data_sampler.idx  # detect epoch
-            data_beg = time.perf_counter()
+            sample_beg = time.perf_counter()
             ds = self.data_sampler.sample()
+            sample_elapsed = time.perf_counter() - sample_beg
 
             # rescale to have unit mean square norm (Sec 3.1)
             factor = np.mean(np.linalg.norm(ds, axis=-1))
+            load_beg = time.perf_counter()
             buffer = jnp.array(ds / factor)
-            data_elapsed = time.perf_counter() - data_beg
+            load_elapsed = time.perf_counter() - load_beg
 
             update_beg = time.perf_counter()
             self.sae, (reconstruction_loss, sparsity_loss) = self.update_fn(
@@ -74,16 +78,19 @@ class Trainer:
             )
             update_elapsed = time.perf_counter() - update_beg
 
-            avg_data_timer.update_average(data_elapsed)
+            avg_sample_timer.update_average(sample_elapsed)
+            avg_load_timer.update_average(load_elapsed)
             avg_update_timer.update_average(update_elapsed)
             self.logger.debug(
-                f"Time for data loading: {data_elapsed:.3f}s, "
+                f"Time for data sampling: {sample_elapsed:.3f}s, "
+                f"Time for data loading: {load_elapsed:.3f}s, "
                 f"Time for gradient update: {update_elapsed:.3f}s"
             )
             metrics["scale_factor"].append(factor[None])
             metrics["reconstruction_loss"].append(np.array(reconstruction_loss)[None])
             metrics["sparsity_loss"].append(np.array(sparsity_loss)[None])
-            metrics["data_load_tm"].append(np.array([data_elapsed]))
+            metrics["sample_tm"].append(np.array([sample_elapsed]))
+            metrics["load_tm"].append(np.array([load_elapsed]))
             metrics["update_tm"].append(np.array([update_elapsed]))
 
             if self.data_sampler.idx < last_idx:  # next buffer is a new epoch
@@ -94,7 +101,7 @@ class Trainer:
                     f"Epoch {i_epoch} completed in {tm_elapsed:.3f}s. ETW: {etw}"
                 )
                 self.logger.debug(
-                    f"Avg. time for data loading: {avg_data_timer.avg_tm:.3f}s, "
+                    f"Avg. time for data loading: {avg_load_timer.avg_tm:.3f}s, "
                     f"Avg. time for gradient update: {avg_update_timer.avg_tm:.3f}s"
                 )
                 i_epoch += 1
