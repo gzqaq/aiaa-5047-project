@@ -75,9 +75,7 @@ class Trainer:
             load_elapsed = time.perf_counter() - load_beg
 
             update_beg = time.perf_counter()
-            self.sae, (reconstruction_loss, sparsity_loss) = self.update_fn(
-                self._get_key(), buffer, self.sae
-            )
+            self.sae, losses = self.update_fn(self._get_key(), buffer, self.sae)
             update_elapsed = time.perf_counter() - update_beg
 
             avg_sample_timer.update_average(sample_elapsed)
@@ -92,9 +90,11 @@ class Trainer:
                 f"Time for gradient update: {update_elapsed:.3f}s"
             )
 
+            reconstruction_loss = np.array(losses.reconstruction_loss)[None]
+            sparsity_loss = np.array(losses.sparsity_loss)[None]
             metrics["scale_factor"].append(factor[None])
-            metrics["reconstruction_loss"].append(np.array(reconstruction_loss)[None])
-            metrics["sparsity_loss"].append(np.array(sparsity_loss)[None])
+            metrics["reconstruction_loss"].append(reconstruction_loss)
+            metrics["sparsity_loss"].append(sparsity_loss)
             metrics["sample_tm"].append(np.array([sample_elapsed]))
             metrics["load_tm"].append(np.array([load_elapsed]))
             metrics["update_tm"].append(np.array([update_elapsed]))
@@ -105,6 +105,10 @@ class Trainer:
                 etw = datetime.timedelta(seconds=tm_elapsed / i_epoch * n_epochs)
                 self.logger.info(
                     f"Epoch {i_epoch} completed in {tm_elapsed:.3f}s. ETW: {etw}"
+                )
+                self.logger.info(
+                    f"Reconstruction loss: {reconstruction_loss.mean().item():.3f}, "
+                    f"sparsity loss: {sparsity_loss.mean().item():.3f}"
                 )
                 self.logger.debug(
                     f"Avg. time for data loading: {avg_load_timer.avg_tm:.3f}s, "
