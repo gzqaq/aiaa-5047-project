@@ -24,7 +24,17 @@ class DataSampler:
         self.metadata = metadata
         self.batch_size = batch_size
         self.buffer_size = buffer_size
-        self._preload_num = buffer_size * preload_factor
+        self.n_batches = buffer_size // batch_size
+        self.total_num = self.n_batches * batch_size
+
+        self._load_all_flag = preload_factor == 0
+        self._load_all = False
+        self._buf: np.ndarray | None = None
+        self._preload_num = (
+            float("inf") if self._load_all_flag else buffer_size * preload_factor
+        )
+        if self._load_all_flag:
+            self.logger.info("preload_factor = 0: will load the whole dataset")
 
         self.data_files: list[Path]
         self._locate_data_files(data_dir)
@@ -35,28 +45,46 @@ class DataSampler:
         self.reset()
 
     def sample(self) -> np.ndarray:
-        n_batches = self.buffer_size // self.batch_size
-        total_num = n_batches * self.batch_size
-        samples = self.buffer[:total_num]
+        samples = self.buffer[: self.total_num]
+        self.buffer = self.buffer[self.total_num :]
 
-        # fill buffer
-        self.buffer = self.buffer[total_num:]
-        if self.buffer.shape[0] < total_num:
-            self.logger.info("Not enough data for next batch, preload")
-            self._fill_buffer()
+        assert id(self.buffer) != id(self._buf), "self._buf is also updated!"
+
+        if self._load_all_flag:
+            self.idx += 1
+
+        if self.buffer.shape[0] < self.total_num:
+            self.logger.info("Not enough data for next batch. Preload")
+
+            if self._load_all_flag:
+                self.idx = len(self)
+            else:
+                self._fill_buffer()
 
         # reset if not enough
         if self.idx >= len(self) and self.buffer.shape[0] < self.buffer_size:
             self.logger.info("Run out of data for this epoch. Reset")
+
+            if self._load_all_flag:
+                assert self._buf is not None
+                self.buffer = self._buf
+
             self.reset()
 
         return samples
 
     def reset(self) -> None:
-        random.shuffle(self.data_files)
-        self.buffer = np.load(self.data_files[0])
         self.idx = 1
-        self._fill_buffer()
+        if self._load_all_flag and self._load_all:
+            np.random.shuffle(self.buffer)
+        else:
+            random.shuffle(self.data_files)
+            self.buffer = np.load(self.data_files[0])
+            self._fill_buffer()
+
+            if not self._load_all and self._load_all_flag:
+                self._load_all = True
+                self._buf = self.buffer
 
     def _fill_buffer(self) -> None:
         load_beg = time.perf_counter()
