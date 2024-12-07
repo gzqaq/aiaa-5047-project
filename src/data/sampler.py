@@ -31,6 +31,7 @@ class DataSampler:
 
         self.buffer: np.ndarray
         self.idx: int
+        self.logger.info("Preload for the first time...")
         self.reset()
 
     def sample(self) -> np.ndarray:
