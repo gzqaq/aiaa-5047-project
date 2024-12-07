@@ -1,4 +1,7 @@
-import flax.nnx as nn
+from typing import NamedTuple
+
+import chex
+import flax.linen as nn
 import jax
 import jax.numpy as jnp
 
@@ -6,68 +9,57 @@ from src.models.utils import jump_relu, step
 
 
 class SparseAutoencoder(nn.Module):
-    def __init__(
-        self,
-        inp_feats: int,
-        hid_feats: int,
-        use_pre_enc_bias: bool = True,
-        *,
-        rngs: nn.Rngs,
-    ) -> None:
-        self.dtype = jnp.float32  # gemma-scope uses float32 (Sec 4.7)
-        self.use_pre_enc_bias = use_pre_enc_bias  # subtract b_dec from input (Sec 3.2)
+    hid_feats: int
+    use_pre_enc_bias: bool = True  # subtract b_dec from input (Sec 3.2)
+
+    @nn.compact
+    def __call__(self, x: jax.Array) -> tuple[jax.Array, jax.Array, jax.Array]:
+        inp_feats = x.shape[-1]
+        w_init = nn.initializers.he_uniform()
+        b_init = nn.initializers.zeros_init()
 
         # gemma-scope uses he_uniform to initialize W_dec, and W_enc is initialized with the
         # transpose of W_dec (Sec 3.2)
-        init_wd = nn.initializers.he_uniform()(
-            rngs.params(), (hid_feats, inp_feats), self.dtype
-        )
-        self.we = nn.Param(init_wd.T)
-        self.wd = nn.Param(init_wd)
+        wd = self.param("W_dec", w_init, (self.hid_feats, inp_feats))
+        we = self.param("W_enc", lambda _: wd.T)
+        bd = self.param("b_dec", b_init, (inp_feats,))
+        be = self.param("b_enc", b_init, (self.hid_feats,))
+        log_thres = self.param("log_thres", log_thres_init_fn, (self.hid_feats,))
 
-        # zero-init for bias (Sec 3.2)
-        self.be = nn.Param(jnp.zeros((hid_feats,), self.dtype))
-        self.bd = nn.Param(jnp.zeros((inp_feats,), self.dtype))
-
-        # initialize threshold with 0.001 (Sec 3.2)
-        self.log_thres = nn.Param(jnp.log(jnp.full_like(self.be, 0.001)))
-
-    def get_pre_act(self, x: jax.Array) -> jax.Array:
         if self.use_pre_enc_bias:
-            x -= self.bd
-        pre_act = x @ self.we + self.be
+            x -= bd
 
-        return pre_act
-
-    def get_feat_magnitudes(self, pre_act: jax.Array) -> jax.Array:
-        thres = jnp.exp(self.log_thres)  # type: ignore
+        pre_act = x @ we + be  # required to compute loss
+        thres = jnp.exp(log_thres)  # required to compute loss
         feat_magnitudes = jump_relu(pre_act, thres)
+        x_reconstructed = feat_magnitudes @ wd + bd
 
-        return feat_magnitudes
+        return x_reconstructed, pre_act, thres
 
-    def encode(self, x: jax.Array) -> jax.Array:
-        return self.get_feat_magnitudes(self.get_pre_act(x))
 
-    def decode(self, feat_magnitudes: jax.Array) -> jax.Array:
-        x_reconstructed = feat_magnitudes @ self.wd + self.bd
+class Losses(NamedTuple):
+    reconstruction_loss: jax.Array
+    sparsity_loss: jax.Array
 
-        return x_reconstructed
 
-    def compute_loss(self, x: jax.Array, sparsity_coef: jax.Array) -> jax.Array:
-        pre_act = self.get_pre_act(x)
-        x_reconstructed = self.decode(self.get_feat_magnitudes(pre_act))
+def compute_loss(
+    x: jax.Array,
+    x_reconstructed: jax.Array,
+    pre_act: jax.Array,
+    thres: jax.Array,
+    sparsity_coef: jax.Array,
+) -> tuple[jax.Array, Losses]:
+    reconstruction_error = x - x_reconstructed
+    reconstruction_loss = jnp.sum(jnp.square(reconstruction_error), axis=-1)
 
-        # reconstruction loss
-        reconstruction_error = x - x_reconstructed
-        reconstruction_loss = jnp.sum(jnp.square(reconstruction_error), axis=-1)
+    l0_norm = jnp.sum(step(pre_act, thres), axis=-1)
+    sparsity_loss = sparsity_coef * l0_norm
 
-        # sparsity loss
-        thres = jnp.exp(self.log_thres)  # type: ignore
-        l0_norm = jnp.sum(step(pre_act, thres), axis=-1)
-        sparsity_loss = sparsity_coef * l0_norm
+    loss = jnp.mean(reconstruction_loss + sparsity_loss, axis=0)
+    return loss, Losses(reconstruction_loss, sparsity_loss)
 
-        # average over the batch axis
-        return jnp.mean(reconstruction_loss + sparsity_loss, axis=0)
 
-    def __call__(self, x: jax.Array) -> jax.Array:
-        return self.decode(self.encode(x))
+def log_thres_init_fn(key: chex.PRNGKey, shape: chex.Shape) -> jax.Array:
+    return jnp.log(
+        jnp.full(shape, 0.001, jnp.float32)  # dtype = float32 (Sec 4.7)
+    )  # initialize threshold with 0.001 (Sec 3.2)
