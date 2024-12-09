@@ -179,6 +179,9 @@ class Trainer:
                     )
 
                 grads, losses = jax.grad(loss_fn, has_aux=True)(carry.params, batch)
+                grads["params"]["W_dec"] = remove_parallel_component(
+                    grads["params"]["W_dec"], carry.params["params"]["W_dec"]
+                )
                 carry = carry.apply_gradients(grads=grads)
 
                 # normalize learned features (Sec 3.2)
@@ -250,3 +253,11 @@ class Trainer:
     def _get_key(self) -> chex.PRNGKey:
         self._key, sk = jax.random.split(self._key)
         return sk
+
+
+def remove_parallel_component(grads: jax.Array, weights: jax.Array) -> jax.Array:
+    """Returns grads with component parallel to weights projected away. (Sec 3.2)"""
+    normalized = weights / (jnp.linalg.norm(weights, axis=-1, keepdims=True) + 1e-6)
+    parallel_component = jnp.einsum("...d,...d->...", grads, normalized)
+
+    return grads - parallel_component[..., None] * normalized
