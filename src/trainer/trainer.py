@@ -97,7 +97,8 @@ class Trainer:
             if self.data_sampler.idx < last_idx:  # next buffer is a new epoch
                 metrics.epoch_end.append(np.array([True]))
                 tm_elapsed = time.time() - tm_beg
-                etw = datetime.timedelta(seconds=tm_elapsed / i_epoch * n_epochs)
+                tm_to_wait = tm_elapsed * (n_epochs / i_epoch - 1)
+                etw = datetime.timedelta(seconds=tm_to_wait)
                 self.logger.info(
                     f"Epoch {i_epoch} completed in {tm_elapsed:.3f}s. ETW: {etw}"
                 )
