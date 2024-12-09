@@ -19,6 +19,7 @@ class Args:
     buffer_size: int
     preload_factor: int
     n_epochs: int
+    save_interval: int
     log_path: Path | None
 
     @staticmethod
@@ -119,6 +120,14 @@ class Args:
             metavar="UINT",
         )
         parser.add_argument(
+            "-interval",
+            "--save-interval",
+            required=True,
+            type=int,
+            help="Number of epochs to save ckpt",
+            metavar="UINT",
+        )
+        parser.add_argument(
             "-log",
             "--log",
             required=False,
@@ -153,6 +162,7 @@ class Args:
             buffer_size=args.buffer_size,
             preload_factor=args.preload_factor,
             n_epochs=args.n_epochs,
+            save_interval=args.save_interval,
             log_path=log_path,
         )
 
