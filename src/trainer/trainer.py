@@ -15,6 +15,7 @@ from flax.training.train_state import TrainState
 from src.data.sampler import DataSampler
 from src.models.sae import Losses, SparseAutoencoder, compute_loss
 from src.trainer.config import TrainerConfig
+from src.trainer.metrics import TrainInfo
 from src.utils.benchmark import Timer
 from src.utils.logging import setup_logger
 
@@ -48,15 +49,7 @@ class Trainer:
 
     def train(self, n_epochs: int) -> dict[str, np.ndarray]:
         i_epoch = 1
-        metrics: dict[str, list[np.ndarray]] = {  # TODO: dataclass
-            "scale_factor": [],
-            "reconstruction_loss": [],
-            "sparsity_loss": [],
-            "epoch_end": [],
-            "sample_tm": [],
-            "load_tm": [],
-            "update_tm": [],
-        }
+        metrics = TrainInfo.from_empty_lists()
         avg_sample_timer = Timer()
         avg_load_timer = Timer()
         avg_update_timer = Timer()
@@ -92,15 +85,17 @@ class Trainer:
 
             reconstruction_loss = np.array(losses.reconstruction_loss)[None]
             sparsity_loss = np.array(losses.sparsity_loss)[None]
-            metrics["scale_factor"].append(factor[None])
-            metrics["reconstruction_loss"].append(reconstruction_loss)
-            metrics["sparsity_loss"].append(sparsity_loss)
-            metrics["sample_tm"].append(np.array([sample_elapsed]))
-            metrics["load_tm"].append(np.array([load_elapsed]))
-            metrics["update_tm"].append(np.array([update_elapsed]))
+            sparsity_coef = np.array(self.lmbda_scheduler(self.sae.step))[None]
+            metrics.scale_factor.append(factor[None])
+            metrics.reconstruction_loss.append(reconstruction_loss)
+            metrics.sparsity_loss.append(sparsity_loss)
+            metrics.sparsity_coef.append(sparsity_coef)
+            metrics.sample_tm.append(np.array([sample_elapsed]))
+            metrics.load_tm.append(np.array([load_elapsed]))
+            metrics.update_tm.append(np.array([update_elapsed]))
 
             if self.data_sampler.idx < last_idx:  # next buffer is a new epoch
-                metrics["epoch_end"].append(np.array([True]))
+                metrics.epoch_end.append(np.array([True]))
                 tm_elapsed = time.time() - tm_beg
                 etw = datetime.timedelta(seconds=tm_elapsed / i_epoch * n_epochs)
                 self.logger.info(
@@ -116,9 +111,9 @@ class Trainer:
                 )
                 i_epoch += 1
             else:
-                metrics["epoch_end"].append(np.array([False]))
+                metrics.epoch_end.append(np.array([False]))
 
-        res = {k: np.concatenate(v, axis=0) for k, v in metrics.items()}
+        res = {k: np.concatenate(v, axis=0) for k, v in metrics.items()}  # type: ignore
         return res
 
     def save_results(self, train_res: dict[str, np.ndarray], save_dir: Path) -> None:
