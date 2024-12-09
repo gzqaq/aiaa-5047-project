@@ -55,78 +55,82 @@ class Trainer:
         avg_update_timer = Timer()
         tm_beg = time.time()
         activations_cnt = 0
-        while i_epoch <= n_epochs:
-            last_idx = self.data_sampler.idx  # detect epoch
 
-            # sample batches
-            sample_beg = time.perf_counter()
-            ds = self.data_sampler.sample()
-            sample_elapsed = time.perf_counter() - sample_beg
-            # rescale to have unit mean square norm (Sec 3.1)
-            factor = np.mean(np.linalg.norm(ds, axis=-1))
-            ds /= factor
+        try:
+            while i_epoch <= n_epochs:
+                last_idx = self.data_sampler.idx  # detect epoch
 
-            # load data
-            load_beg = time.perf_counter()
-            buffer = jnp.array(ds)
-            load_elapsed = time.perf_counter() - load_beg
+                # sample batches
+                sample_beg = time.perf_counter()
+                ds = self.data_sampler.sample()
+                sample_elapsed = time.perf_counter() - sample_beg
+                # rescale to have unit mean square norm (Sec 3.1)
+                factor = np.mean(np.linalg.norm(ds, axis=-1))
+                ds /= factor
 
-            # gradient update
-            update_beg = time.perf_counter()
-            self.sae, losses = self.update_fn(self._get_key(), buffer, self.sae)
-            update_elapsed = time.perf_counter() - update_beg
+                # load data
+                load_beg = time.perf_counter()
+                buffer = jnp.array(ds)
+                load_elapsed = time.perf_counter() - load_beg
 
-            # update timers
-            avg_sample_timer.update_average(sample_elapsed)
-            avg_load_timer.update_average(load_elapsed)
-            avg_update_timer.update_average(update_elapsed)
+                # gradient update
+                update_beg = time.perf_counter()
+                self.sae, losses = self.update_fn(self._get_key(), buffer, self.sae)
+                update_elapsed = time.perf_counter() - update_beg
 
-            # avg. speed and log time
-            activations_cnt += ds.shape[0]
-            avg_speed = int(activations_cnt / (time.time() - tm_beg))
-            self.logger.info(f"Avg. speed: {avg_speed} activations per second")
-            self.logger.debug(
-                f"Time for data sampling: {sample_elapsed:.3f}s, "
-                f"Time for data loading: {load_elapsed:.3f}s, "
-                f"Time for gradient update: {update_elapsed:.3f}s"
-            )
+                # update timers
+                avg_sample_timer.update_average(sample_elapsed)
+                avg_load_timer.update_average(load_elapsed)
+                avg_update_timer.update_average(update_elapsed)
 
-            # store train info
-            reconstruction_loss = np.array(losses.reconstruction_loss).mean(-1)[None]
-            sparsity_loss = np.array(losses.sparsity_loss).mean(-1)[None]
-            sparsity_coef = np.array(self.lmbda_scheduler(self.sae.step))[None]
-            metrics.scale_factor.append(factor[None])
-            metrics.reconstruction_loss.append(reconstruction_loss)
-            metrics.sparsity_loss.append(sparsity_loss)
-            metrics.sparsity_coef.append(sparsity_coef)
-            metrics.sample_tm.append(np.array([sample_elapsed]))
-            metrics.load_tm.append(np.array([load_elapsed]))
-            metrics.update_tm.append(np.array([update_elapsed]))
-
-            if self.data_sampler.idx < last_idx:  # next buffer is a new epoch
-                metrics.epoch_end.append(np.array([True]))
-
-                # estimate remaining time
-                tm_elapsed = time.time() - tm_beg
-                tm_to_wait = tm_elapsed * (n_epochs / i_epoch - 1)
-                etw = datetime.timedelta(seconds=tm_to_wait)
-                self.logger.info(
-                    f"Epoch {i_epoch} completed in {tm_elapsed:.3f}s. ETW: {etw}"
-                )
-                self.logger.info(
-                    f"Reconstruction loss: {reconstruction_loss.mean().item():.3f}, "
-                    f"sparsity loss: {sparsity_loss.mean().item():.3f}"
-                )
+                # avg. speed and log time
+                activations_cnt += ds.shape[0]
+                avg_speed = int(activations_cnt / (time.time() - tm_beg))
+                self.logger.info(f"Avg. speed: {avg_speed} activations per second")
                 self.logger.debug(
-                    f"Avg. time for data loading: {avg_load_timer.avg_tm:.3f}s, "
-                    f"Avg. time for gradient update: {avg_update_timer.avg_tm:.3f}s"
+                    f"Time for data sampling: {sample_elapsed:.3f}s, "
+                    f"Time for data loading: {load_elapsed:.3f}s, "
+                    f"Time for gradient update: {update_elapsed:.3f}s"
                 )
-                i_epoch += 1
-            else:
-                metrics.epoch_end.append(np.array([False]))
 
-        res = {k: np.concatenate(v, axis=0) for k, v in metrics.items()}  # type: ignore
-        return res
+                # store train info
+                reconstruction_loss = np.array(losses.reconstruction_loss).mean(-1)
+                sparsity_loss = np.array(losses.sparsity_loss).mean(-1)
+                sparsity_coef = np.array(self.lmbda_scheduler(self.sae.step))
+                metrics.scale_factor.append(factor[None])
+                metrics.reconstruction_loss.append(reconstruction_loss[None])
+                metrics.sparsity_loss.append(sparsity_loss[None])
+                metrics.sparsity_coef.append(sparsity_coef[None])
+                metrics.sample_tm.append(np.array([sample_elapsed]))
+                metrics.load_tm.append(np.array([load_elapsed]))
+                metrics.update_tm.append(np.array([update_elapsed]))
+
+                if self.data_sampler.idx < last_idx:  # next buffer is a new epoch
+                    metrics.epoch_end.append(np.array([True]))
+
+                    # estimate remaining time
+                    tm_elapsed = time.time() - tm_beg
+                    tm_to_wait = tm_elapsed * (n_epochs / i_epoch - 1)
+                    etw = datetime.timedelta(seconds=tm_to_wait)
+                    self.logger.info(
+                        f"Epoch {i_epoch} completed in {tm_elapsed:.3f}s. ETW: {etw}"
+                    )
+                    self.logger.info(
+                        f"Reconstruction loss: {reconstruction_loss.mean().item():.3f}, "
+                        f"sparsity loss: {sparsity_loss.mean().item():.3f}"
+                    )
+                    self.logger.debug(
+                        f"Avg. time for data loading: {avg_load_timer.avg_tm:.3f}s, "
+                        f"Avg. time for gradient update: {avg_update_timer.avg_tm:.3f}s"
+                    )
+                    i_epoch += 1
+                else:
+                    metrics.epoch_end.append(np.array([False]))
+
+        except KeyboardInterrupt:
+            self.logger.warning("Quit due to keyboard interrupt. Proceed to next part")
+
+        return metrics.to_array()
 
     def save_results(self, train_res: dict[str, np.ndarray], save_dir: Path) -> None:
         config = self.config
