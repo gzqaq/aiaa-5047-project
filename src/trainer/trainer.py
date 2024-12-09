@@ -83,8 +83,8 @@ class Trainer:
                 f"Time for gradient update: {update_elapsed:.3f}s"
             )
 
-            reconstruction_loss = np.array(losses.reconstruction_loss)[None]
-            sparsity_loss = np.array(losses.sparsity_loss)[None]
+            reconstruction_loss = np.array(losses.reconstruction_loss).mean(-1)[None]
+            sparsity_loss = np.array(losses.sparsity_loss).mean(-1)[None]
             sparsity_coef = np.array(self.lmbda_scheduler(self.sae.step))[None]
             metrics.scale_factor.append(factor[None])
             metrics.reconstruction_loss.append(reconstruction_loss)
