@@ -17,7 +17,7 @@ from src.models.sae import Losses, SparseAutoencoder, compute_loss
 from src.trainer.config import TrainerConfig
 from src.trainer.metrics import TrainInfo
 from src.utils.benchmark import Timer
-from src.utils.logging import setup_logger
+from src.utils.logging import DEFAULT_LOG_PATH, setup_logger
 
 
 class Trainer:
@@ -27,8 +27,16 @@ class Trainer:
         data_dir: Path,
         preload_factor: int,
         log_path: Path | None = None,
+        save_dir: Path | None = None,
         seed: int = 0,
     ) -> None:
+        if log_path is None:
+            log_path = DEFAULT_LOG_PATH
+        if save_dir is None:
+            self.save_dir = log_path.parent / "trainer-ckpts"
+        else:
+            self.save_dir = save_dir
+
         self.logger = setup_logger("trainer", log_path)
         self.config = config
 
@@ -47,8 +55,9 @@ class Trainer:
         ]
         self.make_train()
 
-    def train(self, n_epochs: int) -> dict[str, np.ndarray]:
+    def train(self, n_epochs: int, save_interval: int = 10) -> None:
         i_epoch = 1
+        n_epoch_since_last_save = 0
         metrics = TrainInfo.from_empty_lists()
         avg_sample_timer = Timer()
         avg_load_timer = Timer()
@@ -124,19 +133,26 @@ class Trainer:
                         f"Avg. time for gradient update: {avg_update_timer.avg_tm:.3f}s"
                     )
                     i_epoch += 1
+                    n_epoch_since_last_save += 1
                 else:
                     metrics.epoch_end.append(np.array([False]))
 
+                if n_epoch_since_last_save >= save_interval:
+                    self.save_results(metrics.to_array(), suffix=f"-e{i_epoch}")
+                    n_epoch_since_last_save = 0
+
         except KeyboardInterrupt:
-            self.logger.warning("Quit due to keyboard interrupt. Proceed to next part")
+            self.logger.warning("Training interrupted. Proceed to next part")
 
-        return metrics.to_array()
+        self.save_results(metrics.to_array(), suffix="-final")
 
-    def save_results(self, train_res: dict[str, np.ndarray], save_dir: Path) -> None:
+    def save_results(
+        self, train_res: dict[str, np.ndarray], *, suffix: str = ""
+    ) -> None:
         config = self.config
         lang_info = "-".join(config.metadata.lang)
-        fname = f"l{config.metadata.layer}-d{config.hid_feats}-{lang_info}.bin"
-        save_path = save_dir / fname
+        fname = f"l{config.metadata.layer}-d{config.hid_feats}-{lang_info}{suffix}.bin"
+        save_path = self.save_dir / fname
 
         with open(save_path, "wb") as fd:
             fd.write(serl.to_bytes({"variables": self.sae.params, "train": train_res}))

@@ -166,10 +166,14 @@ def main(args: Args) -> None:
         buffer_size=args.buffer_size,
     )
     trainer = Trainer(
-        config, args.data_dir, args.preload_factor, args.log_path, args.seed
+        config,
+        args.data_dir,
+        args.preload_factor,
+        args.log_path,
+        args.save_dir,
+        args.seed,
     )
-    res = trainer.train(args.n_epochs)
-    trainer.save_results(res, args.save_dir)
+    trainer.train(args.n_epochs)
 
 
 if __name__ == "__main__":
