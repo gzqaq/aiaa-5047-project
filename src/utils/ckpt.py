@@ -1,8 +1,13 @@
 from pathlib import Path
+from typing import Callable
 
 import flax.serialization as serl
+import jax
+import jax.numpy as jnp
 import numpy as np
 from chex import Array, dataclass
+
+from src.models.sae import SparseAutoencoder
 
 
 @dataclass
@@ -85,3 +90,46 @@ class Checkpoint:
                 tuple(ckpt_dict["train"].values())
             ),
         )
+
+
+class SAECheckpoint:
+    @staticmethod
+    def from_flax_bin(path: Path) -> "SAECheckpoint":
+        ckpt = Checkpoint.from_flax_bin(path)
+        return SAECheckpoint(ckpt.variables)
+
+    def __init__(self, variables: Variables) -> None:
+        self.variables = {
+            "params": {k: jnp.asarray(v) for k, v in variables.params.items()}  # type: ignore[attr-defined]
+        }
+
+        self.n_learned_feats: int
+        self.n_feats: int
+        self.n_learned_feats, self.n_feats = variables.params.W_dec.shape
+
+        self.sae_fwd: Callable[[Array], tuple[jax.Array, jax.Array]]
+        self.make_sae_fwd()
+
+    def make_sae_fwd(self) -> None:
+        self.sae_apply = SparseAutoencoder(self.hid_feats).apply
+
+        @jax.jit
+        def sae_fwd(x: Array) -> tuple[jax.Array, jax.Array]:
+            # rescale to have unit mean square norm (Sec 3.1). Should be fixed during inference, but
+            # there is bug that dumped scale_factor converges to 1
+            factor = jnp.mean(jnp.linalg.norm(x, axis=-1))
+            x /= factor
+            x_reconstructed, pre_act, thres = self.sae_apply(self.variables, x)  # type: ignore
+            act = (pre_act > thres).astype(pre_act.dtype)
+
+            return x_reconstructed, act
+
+        self.sae_fwd = sae_fwd
+
+    @property
+    def hid_feats(self) -> int:
+        return self.n_learned_feats
+
+    @property
+    def inp_feats(self) -> int:
+        return self.n_feats
