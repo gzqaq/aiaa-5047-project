@@ -72,3 +72,14 @@ class CoOccurrence:
         self.M_10 = diag[:, None] - hist
         self.M_01 = diag[None] - hist
         self.M_00 = self.n_chunks - diag[:, None] - diag[None] + hist
+
+    def compute_phi_coef(self) -> np.ndarray:
+        numerator = self.M_11 * self.M_00 - self.M_10 * self.M_01
+        denominator = np.sqrt(
+            (self.M_11 + self.M_10)
+            * (self.M_01 + self.M_00)
+            * (self.M_11 + self.M_01)
+            * (self.M_10 + self.M_00)
+        )
+
+        return numerator / denominator
