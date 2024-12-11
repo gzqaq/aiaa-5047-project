@@ -76,11 +76,11 @@ class Trainer:
                 sample_elapsed = time.perf_counter() - sample_beg
                 # rescale to have unit mean square norm (Sec 3.1)
                 factor = np.mean(np.linalg.norm(ds, axis=-1))
-                ds /= factor
+                scaled_ds = ds / factor
 
                 # load data
                 load_beg = time.perf_counter()
-                buffer = jnp.array(ds)
+                buffer = jnp.array(scaled_ds)
                 load_elapsed = time.perf_counter() - load_beg
 
                 # gradient update
