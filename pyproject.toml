@@ -17,6 +17,7 @@ optax = "0.2.2"
 transformer-lens = "^2.9.1"
 pandas = "^2.2.3"
 fastparquet = "^2024.11.0"
+scikit-learn = "^1.6.0"
 
 
 [tool.poetry.group.dev.dependencies]
