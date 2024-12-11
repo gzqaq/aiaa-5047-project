@@ -183,7 +183,7 @@ def main(args: Args) -> None:
         args.save_dir,
         args.seed,
     )
-    trainer.train(args.n_epochs)
+    trainer.train(args.n_epochs, args.save_interval)
 
 
 if __name__ == "__main__":
