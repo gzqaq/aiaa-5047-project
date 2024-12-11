@@ -39,6 +39,7 @@ class Trainer:
 
         self.logger = setup_logger("trainer", log_path)
         self.config = config
+        self.logger.info(f"Trainer config: {config}")
 
         self._key: chex.PRNGKey
         self._init_rng(seed)
