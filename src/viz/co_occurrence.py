@@ -39,3 +39,27 @@ class CoOccurrence:
         self.chunkwise_co_occur = np.astype(
             co_occur_per_chunk_p, co_occur_times_per_chunk.dtype
         )
+
+    def get_histogram_of_all_feats(self) -> None:
+        """Compute the co-occurrence histogram of all learned features."""
+        self.hist_of_all = self.chunkwise_co_occur.T @ self.chunkwise_co_occur
+
+    def get_histogram_of_valid_feats(self) -> None:
+        """
+        Compute the co-occurrence histogram of features that occur and don't occur at least once.
+        """
+        times_occur_of_feats = np.diag(self.hist_of_all)
+        valid_feats_mask = np.logical_and(
+            times_occur_of_feats < self.n_chunks, times_occur_of_feats > 0
+        )
+        self.valid_feats_mask = valid_feats_mask
+        self.hist_of_valid = self.hist_of_all[valid_feats_mask][:, valid_feats_mask]
+
+    def compute_help_matrices(self) -> None:
+        """Compute matrices that will be used to compute different affinity matrices."""
+        diag = np.diag(self.hist_of_valid)
+        hist = self.hist_of_valid
+        self.M_11 = hist
+        self.M_10 = diag[:, None] - hist
+        self.M_01 = diag[None] - hist
+        self.M_00 = self.n_chunks - diag[:, None] - diag[None] + hist
