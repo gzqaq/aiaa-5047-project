@@ -9,6 +9,10 @@ from src.viz.co_occurrence import CoOccurrence
 
 
 class Visualizer:
+    learned_feats: np.ndarray
+    clusters: dict[int, np.ndarray] | None
+    valid_feats_2d: np.ndarray | None
+
     def __init__(
         self,
         sae_ckpt: SAECheckpoint,
@@ -16,6 +20,8 @@ class Visualizer:
         chunk_size: int,
         n_components: int = 2,
         n_clusters: int = 2,
+        run_cluster: bool = False,
+        run_tsne: bool = False,
         log_path: Path | None = None,
     ) -> None:
         self.ckpt = sae_ckpt
@@ -31,6 +37,14 @@ class Visualizer:
         )
         self.valid_feats = self.learned_feats[self.co_occur.valid_feats_mask]
 
+        self.clusters = None
+        if run_cluster:
+            self.run_cluster()
+
+        self.valid_feats_2d = None
+        if run_tsne:
+            self.run_tsne()
+
     def run_cluster(self, affinity_measure: str = "phi-coef") -> None:
         if affinity_measure == "phi-coef":
             phi_coef = self.co_occur.compute_phi_coef()
@@ -41,3 +55,6 @@ class Visualizer:
         self.clusters = {}
         for i in range(self.cluster_alg.n_clusters):
             self.clusters[i] = self.valid_feats[self.cluster_alg.labels_ == i]
+
+    def run_tsne(self) -> None:
+        self.valid_feats_2d = self.tsne_alg.fit_transform(self.valid_feats)
