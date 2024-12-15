@@ -30,6 +30,7 @@ class Args:
         parser.add_argument(
             "-zh",
             "--zh-act",
+            required=True,
             type=str,
             help="Path to saved activations on Chinese texts. Should be a .npy file",
             metavar="PATH",
@@ -37,6 +38,7 @@ class Args:
         parser.add_argument(
             "-en",
             "--en-act",
+            required=True,
             type=str,
             help="Path to saved activations on English texts. Should be a .npy file",
             metavar="PATH",
@@ -44,6 +46,7 @@ class Args:
         parser.add_argument(
             "-size",
             "--chunk-size",
+            required=True,
             type=int,
             help="Chunk size when counting co-occurrence",
             metavar="UINT",
