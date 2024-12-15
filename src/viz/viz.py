@@ -62,8 +62,10 @@ class Visualizer:
             raise NotImplementedError()
 
         self.clusters = {}
+        self.masks = {}
         for i in range(self.cluster_alg.n_clusters):
-            self.clusters[i] = self.valid_feats[self.cluster_alg.labels_ == i]
+            self.masks[i] = self.cluster_alg.labels_ == i
+            self.clusters[i] = self.valid_feats[self.masks[i]]
 
     def run_tsne(self) -> None:
         self.logger.info(f"Run t-SNE on {len(self.valid_feats)} features")
