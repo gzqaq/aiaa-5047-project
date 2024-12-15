@@ -70,3 +70,7 @@ class Visualizer:
     def run_tsne(self) -> None:
         self.logger.info(f"Run t-SNE on {len(self.valid_feats)} features")
         self.valid_feats_2d = self.tsne_alg.fit_transform(self.valid_feats)
+
+    @property
+    def valid_feats_mask(self) -> np.ndarray:
+        return self.co_occur.valid_feats_mask
