@@ -15,6 +15,7 @@ class Args:
     zh_act: Path
     en_act: Path
     chunk_size: int
+    n_chunks: int
     log_path: Path | None
 
     @staticmethod
@@ -48,6 +49,14 @@ class Args:
             metavar="UINT",
         )
         parser.add_argument(
+            "-chunks",
+            "--n-chunks",
+            default=0,
+            type=int,
+            help="Number of chunks per language to run. 0 means as many as possible",
+            metavar="UINT",
+        )
+        parser.add_argument(
             "-log",
             "--log",
             required=False,
@@ -76,6 +85,7 @@ class Args:
             zh_act=zh_path,
             en_act=en_path,
             chunk_size=args.chunk_size,
+            n_chunks=args.n_chunks,
             log_path=log_path,
         )
 
@@ -84,7 +94,16 @@ def main(args: Args) -> None:
     ckpt = SAECheckpoint.from_flax_bin(args.ckpt)
     zh_act = np.load(args.zh_act)
     en_act = np.load(args.en_act)
+
+    if args.n_chunks > 0:
+        n_chunks = args.n_chunks
+    else:
+        n_chunks = len(zh_act) // args.chunk_size * args.chunk_size
+
+    zh_act = zh_act[: n_chunks * args.chunk_size]
+    en_act = en_act[: n_chunks * args.chunk_size]
     activations = np.concatenate([zh_act, en_act], axis=0)
+
     visualizer = Visualizer(
         ckpt,
         activations,
