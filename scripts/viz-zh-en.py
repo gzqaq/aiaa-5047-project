@@ -95,3 +95,31 @@ def main(args: Args) -> None:
         run_tsne=True,
         log_path=args.log_path,
     )
+    assert visualizer.valid_feats_2d is not None
+
+    # which label zh or en corresponds to
+    sae_acts = np.array(ckpt.sae_fwd(activations)[1])
+    sae_acts_on_valid = sae_acts[:, visualizer.valid_feats_mask]
+    zh_on_valid = sae_acts_on_valid[: len(zh_act)]
+    en_on_valid = sae_acts_on_valid[len(zh_act) :]
+
+    label_0_and_zh = np.logical_and(visualizer.masks[0][None], zh_on_valid)
+    label_0_and_en = np.logical_and(visualizer.masks[0][None], en_on_valid)
+    if label_0_and_zh.sum(-1).mean() > label_0_and_en.sum(-1).mean():
+        labels = ["zh", "en"]
+    else:
+        labels = ["en", "zh"]
+
+    # visualize 2d
+    for lbl in range(visualizer.cluster_alg.n_clusters):
+        label = labels[lbl]
+        mask = visualizer.masks[lbl]
+        feats = visualizer.valid_feats_2d[mask]
+        plt.scatter(feats[:, 0], feats[:, 1], label=label, alpha=0.5)
+
+    plt.legend()
+    plt.savefig(args.ckpt.with_suffix(".2d.pdf"))
+
+
+if __name__ == "__main__":
+    main(Args.from_argparse())
