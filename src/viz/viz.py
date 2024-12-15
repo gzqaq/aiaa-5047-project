@@ -5,6 +5,7 @@ from sklearn.cluster import SpectralClustering
 from sklearn.manifold import TSNE
 
 from src.utils.ckpt import SAECheckpoint
+from src.utils.logging import setup_logger
 from src.viz.co_occurrence import CoOccurrence
 
 
@@ -24,6 +25,8 @@ class Visualizer:
         run_tsne: bool = False,
         log_path: Path | None = None,
     ) -> None:
+        self.logger = setup_logger("viz", log_path)
+
         self.ckpt = sae_ckpt
         self.learned_feats = np.array(sae_ckpt.variables["params"]["W_dec"])
 
@@ -39,17 +42,23 @@ class Visualizer:
 
         self.clusters = None
         if run_cluster:
+            self.logger.info("Run cluster due to run_cluster=True")
             self.run_cluster()
 
         self.valid_feats_2d = None
         if run_tsne:
+            self.logger.info("Run t-SNE due to run_tsne=True")
             self.run_tsne()
 
     def run_cluster(self, affinity_measure: str = "phi-coef") -> None:
         if affinity_measure == "phi-coef":
+            self.logger.info("Run cluster using phi coefficient as affinity measure")
             phi_coef = self.co_occur.compute_phi_coef()
             self.cluster_alg.fit(np.exp(phi_coef))
         else:
+            self.logger.critical(
+                f"Affinity measure {affinity_measure} not implemented!"
+            )
             raise NotImplementedError()
 
         self.clusters = {}
@@ -57,4 +66,5 @@ class Visualizer:
             self.clusters[i] = self.valid_feats[self.cluster_alg.labels_ == i]
 
     def run_tsne(self) -> None:
+        self.logger.info(f"Run t-SNE on {len(self.valid_feats)} features")
         self.valid_feats_2d = self.tsne_alg.fit_transform(self.valid_feats)
