@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from src.utils.ckpt import SAECheckpoint
+from src.utils.logging import setup_logger
 from src.viz.viz import Visualizer
 
 
@@ -136,9 +137,14 @@ class Args:
 
 
 def main(args: Args) -> None:
+    logger = setup_logger("script")
+
     ckpt = SAECheckpoint.from_flax_bin(args.ckpt)
+    logger.info(f"SAE weights loaded from {args.ckpt}")
     zh_act = np.load(args.zh_act)
+    logger.info(f"Activations on Chinese texts loaded from {args.zh_act}")
     en_act = np.load(args.en_act)
+    logger.info(f"Activations on English texts loaded from {args.en_act}")
 
     if args.n_chunks > 0:
         n_chunks = args.n_chunks
@@ -148,6 +154,7 @@ def main(args: Args) -> None:
     zh_act = zh_act[: n_chunks * args.chunk_size]
     en_act = en_act[: n_chunks * args.chunk_size]
     activations = np.concatenate([zh_act, en_act], axis=0)
+    logger.info(f"Will use {len(activations)} activations")
 
     visualizer = Visualizer(
         ckpt,
@@ -171,8 +178,14 @@ def main(args: Args) -> None:
     label_0_and_en = np.logical_and(visualizer.masks[0][None], en_on_valid)
     if label_0_and_zh.sum(-1).mean() > label_0_and_en.sum(-1).mean():
         labels = ["zh", "en"]
+        logger.debug(
+            "Label 0 has the higher proportion of its features firing on Chinese texts"
+        )
     else:
         labels = ["en", "zh"]
+        logger.debug(
+            "Label 1 has the higher proportion of its features firing on Chinese texts"
+        )
 
     # visualize 2d
     fig, ax = plt.subplots(1, 1, figsize=args.figsize, dpi=args.dpi)
@@ -183,9 +196,11 @@ def main(args: Args) -> None:
         ax.scatter(
             feats[:, 0], feats[:, 1], label=label, alpha=args.alpha, s=args.marker_size
         )
-
     ax.legend()
-    fig.savefig(args.ckpt.with_suffix(".2d.pdf"))
+
+    fig_path = args.ckpt.with_suffix(".2d.pdf")
+    fig.savefig(fig_path)
+    logger.info(f"Visualized in {fig_path}")
 
 
 if __name__ == "__main__":
