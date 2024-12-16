@@ -17,6 +17,10 @@ class Args:
     chunk_size: int
     n_chunks: int
     log_path: Path | None
+    figsize: tuple[float, float] = (6.4, 4.8)
+    dpi: float = 100.0
+    alpha: float = 1.0
+    marker_size: float = 0.3
 
     @staticmethod
     def from_argparse() -> "Args":
@@ -67,6 +71,38 @@ class Args:
             help="Path to log file",
             metavar="PATH",
         )
+        parser.add_argument(
+            "-figsize",
+            "--figsize",
+            default="6.4,4.8",
+            type=str,
+            help="Width, height in inches. Separated by comma, defaults to 6.4,4.8",
+            metavar="W,H",
+        )
+        parser.add_argument(
+            "-dpi",
+            "--dpi",
+            default=100.0,
+            type=float,
+            help="Resolution of the figure in dots-per-inch. Defaults to 100.0",
+            metavar="DPI",
+        )
+        parser.add_argument(
+            "-alpha",
+            "--alpha",
+            default=1.0,
+            type=float,
+            help="The alpha blending value, between 0 and 1. Defaults to 1.0",
+            metavar="ALPHA",
+        )
+        parser.add_argument(
+            "-marker",
+            "--marker-size",
+            default=0.3,
+            type=float,
+            help="The marker size in points^2. Defaults to 0.3",
+            metavar="SIZE",
+        )
         args = parser.parse_args()
 
         ckpt_path = Path(args.ckpt).resolve()
@@ -83,6 +119,8 @@ class Args:
         else:
             log_path = Path(args.log).resolve()
 
+        w, h = tuple(map(float, args.figsize.split(",")))
+
         return Args(
             ckpt=ckpt_path,
             zh_act=zh_path,
@@ -90,6 +128,10 @@ class Args:
             chunk_size=args.chunk_size,
             n_chunks=args.n_chunks,
             log_path=log_path,
+            figsize=(w, h),
+            dpi=args.dpi,
+            alpha=args.alpha,
+            marker_size=args.marker_size,
         )
 
 
@@ -133,14 +175,17 @@ def main(args: Args) -> None:
         labels = ["en", "zh"]
 
     # visualize 2d
+    fig, ax = plt.subplots(1, 1, figsize=args.figsize, dpi=args.dpi)
     for lbl in range(visualizer.cluster_alg.n_clusters):
         label = labels[lbl]
         mask = visualizer.masks[lbl]
         feats = visualizer.valid_feats_2d[mask]
-        plt.scatter(feats[:, 0], feats[:, 1], label=label, alpha=0.5)
+        ax.scatter(
+            feats[:, 0], feats[:, 1], label=label, alpha=args.alpha, s=args.marker_size
+        )
 
-    plt.legend()
-    plt.savefig(args.ckpt.with_suffix(".2d.pdf"))
+    ax.legend()
+    fig.savefig(args.ckpt.with_suffix(".2d.pdf"))
 
 
 if __name__ == "__main__":
