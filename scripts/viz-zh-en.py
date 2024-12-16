@@ -163,10 +163,9 @@ def main(args: Args) -> None:
         n_components=2,
         n_clusters=2,
         run_cluster=True,
-        run_tsne=True,
+        run_tsne=False,
         log_path=args.log_path,
     )
-    assert visualizer.valid_feats_2d is not None
 
     # which label zh or en corresponds to
     sae_acts = np.array(ckpt.sae_fwd(activations)[1])
@@ -207,6 +206,9 @@ def main(args: Args) -> None:
         labels = ["en", "zh"]
 
     # visualize 2d
+    visualizer.run_tsne()
+    assert visualizer.valid_feats_2d is not None
+
     fig, ax = plt.subplots(1, 1, figsize=args.figsize, dpi=args.dpi)
     for lbl in range(visualizer.cluster_alg.n_clusters):
         label = labels[lbl]
