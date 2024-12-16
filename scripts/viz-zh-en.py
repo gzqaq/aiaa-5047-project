@@ -171,21 +171,40 @@ def main(args: Args) -> None:
     # which label zh or en corresponds to
     sae_acts = np.array(ckpt.sae_fwd(activations)[1])
     sae_acts_on_valid = sae_acts[:, visualizer.valid_feats_mask]
-    zh_on_valid = sae_acts_on_valid[: len(zh_act)]
-    en_on_valid = sae_acts_on_valid[len(zh_act) :]
+    acts_on_valid = {
+        "zh": sae_acts_on_valid[: len(zh_act)],
+        "en": sae_acts_on_valid[len(zh_act) :],
+    }
 
-    label_0_and_zh = np.logical_and(visualizer.masks[0][None], zh_on_valid)
-    label_0_and_en = np.logical_and(visualizer.masks[0][None], en_on_valid)
-    if label_0_and_zh.sum(-1).mean() > label_0_and_en.sum(-1).mean():
+    acts_on_lbl: dict[str, dict[int, np.ndarray]] = {}
+    for lang in ["zh", "en"]:
+        acts_on_lbl[lang] = {}
+        for lbl in [0, 1]:
+            acts_on_lbl[lang][lbl] = acts_on_valid[lang][:, visualizer.masks[lbl]]
+
+    lbl_0_activates_more: dict[str, np.ndarray] = {}
+    for lang in ["zh", "en"]:
+        lbl_0_activates_more[lang] = np.mean(
+            np.greater(
+                acts_on_lbl[lang][0]
+                .reshape(n_chunks, args.chunk_size, -1)
+                .mean(axis=(-2, -1)),
+                acts_on_lbl[lang][1]
+                .reshape(n_chunks, args.chunk_size, -1)
+                .mean(axis=(-2, -1)),
+            )
+        )
+        logger.debug(
+            "Proportion of chunks where label-0 features fire more "
+            f"on {lang} texts: {lbl_0_activates_more[lang]}"
+        )
+
+    if lbl_0_activates_more["zh"] > lbl_0_activates_more["en"]:
+        logger.info("Label 0 corresponds to features firing on Chinese texts")
         labels = ["zh", "en"]
-        logger.debug(
-            "Label 0 has the higher proportion of its features firing on Chinese texts"
-        )
     else:
+        logger.info("Label 1 corresponds to features firing on Chinese texts")
         labels = ["en", "zh"]
-        logger.debug(
-            "Label 1 has the higher proportion of its features firing on Chinese texts"
-        )
 
     # visualize 2d
     fig, ax = plt.subplots(1, 1, figsize=args.figsize, dpi=args.dpi)
