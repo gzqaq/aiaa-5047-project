@@ -4,5 +4,7 @@ datasets
 # for convenient docker build
 build
 
-# don't track figures for now
-figures
+# don't track refs.bib, figures and main.pdf for now
+report/refs.bib
+report/figures
+report/main.pdf
