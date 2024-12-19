@@ -230,7 +230,7 @@ def main(args: Args) -> None:
                 )
                 axes[i].set_title(_TITLE_MAP[measure])
 
-        fig.legend(["en", "zh"])
+        fig.legend(["en", "zh"], markerscale=1 / args.marker_size)
     else:
         labels = run_cluster_get_labels(
             visualizer,
@@ -253,7 +253,7 @@ def main(args: Args) -> None:
                 s=args.marker_size,
                 c=_COLOR_MAP[label],
             )
-        ax.legend()
+        ax.legend(markerscale=1 / args.marker_size)
 
     fig_path = args.ckpt.with_suffix(f".{args.affinity_measure}.2d.pdf")
     fig.savefig(fig_path)
