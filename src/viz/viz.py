@@ -55,6 +55,26 @@ class Visualizer:
             self.logger.info("Run cluster using phi coefficient as affinity measure")
             phi_coef = self.co_occur.compute_phi_coef()
             self.cluster_alg.fit(np.exp(phi_coef))
+        elif affinity_measure == "jaccard-sim":
+            self.logger.info("Run cluster using Jaccard similarity as affinity measure")
+            jaccard_sim = self.co_occur.compute_jaccard_similarity()
+            self.cluster_alg.fit(jaccard_sim)
+        elif affinity_measure == "dice-score":
+            self.logger.info("Run cluster using dice score as affinity measure")
+            dice_score = self.co_occur.compute_dice_score()
+            self.cluster_alg.fit(dice_score)
+        elif affinity_measure == "overlap-coef":
+            self.logger.info(
+                "Run cluster using overlap coefficient as affinity measure"
+            )
+            overlap_coef = self.co_occur.compute_overlap_coef()
+            self.cluster_alg.fit(overlap_coef)
+        elif affinity_measure == "simple-matching-coef":
+            self.logger.info(
+                "Run cluster using simple mathing coefficient as affinity measure"
+            )
+            simple_matching_coef = self.co_occur.compute_simple_matching_coef()
+            self.cluster_alg.fit(simple_matching_coef)
         else:
             self.logger.critical(
                 f"Affinity measure {affinity_measure} not implemented!"
