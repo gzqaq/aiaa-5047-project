@@ -11,6 +11,13 @@ from src.viz.viz import Visualizer
 
 _LOGGER = setup_logger("script")
 _COLOR_MAP = {"zh": "#ff7f0e", "en": "#1f77b4"}
+_TITLE_MAP = {
+    "phi-coef": "Phi coefficient",
+    "jaccard-sim": "Jaccard similarity",
+    "dice-score": "Dice score",
+    "overlap-coef": "Overlap coefficient",
+    "simple-matching-coef": "Simple matching coefficient",
+}
 
 
 @dataclass
@@ -77,7 +84,8 @@ class Args:
             "--affinity-measure",
             default="phi-coef",
             type=str,
-            help="Which affinity measure to use for clustering. Defaults to phi-coef",
+            help="Which affinity measure to use for clustering, defaults to phi-coef. "
+            "If four, save all four except phi-coef in a single file",
             metavar="MEASURE",
         )
         parser.add_argument(
@@ -197,28 +205,55 @@ def main(args: Args) -> None:
         "en": sae_acts_on_valid[len(zh_act) :],
     }
 
-    labels = run_cluster_get_labels(
-        visualizer,
-        args.affinity_measure,
-        acts_on_valid,
-        n_chunks,
-        args.chunk_size,
-    )
-
-    fig, ax = plt.subplots(1, 1, figsize=args.figsize, dpi=args.dpi)
-    for lbl in range(visualizer.cluster_alg.n_clusters):
-        label = labels[lbl]
-        mask = visualizer.masks[lbl]
-        feats = visualizer.valid_feats_2d[mask]
-        ax.scatter(
-            feats[:, 0],
-            feats[:, 1],
-            label=label,
-            alpha=args.alpha,
-            s=args.marker_size,
-            c=_COLOR_MAP[label],
+    if args.affinity_measure == "four":
+        measures = ["jaccard-sim", "dice-score", "overlap-coef", "simple-matching-coef"]
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(
+            2, 2, figsize=args.figsize, dpi=args.dpi
         )
-    ax.legend()
+        axes = [ax1, ax2, ax3, ax4]
+
+        for i, measure in enumerate(measures):
+            labels = run_cluster_get_labels(
+                visualizer, measure, acts_on_valid, n_chunks, args.chunk_size
+            )
+            for lbl in range(visualizer.cluster_alg.n_clusters):
+                label = labels[lbl]
+                mask = visualizer.masks[lbl]
+                feats = visualizer.valid_feats_2d[mask]
+                axes[i].scatter(
+                    feats[:, 0],
+                    feats[:, 1],
+                    label=label,
+                    alpha=args.alpha,
+                    s=args.marker_size,
+                    c=_COLOR_MAP[label],
+                )
+                axes[i].set_title(_TITLE_MAP[measure])
+
+        fig.legend(["en", "zh"])
+    else:
+        labels = run_cluster_get_labels(
+            visualizer,
+            args.affinity_measure,
+            acts_on_valid,
+            n_chunks,
+            args.chunk_size,
+        )
+
+        fig, ax = plt.subplots(1, 1, figsize=args.figsize, dpi=args.dpi)
+        for lbl in range(visualizer.cluster_alg.n_clusters):
+            label = labels[lbl]
+            mask = visualizer.masks[lbl]
+            feats = visualizer.valid_feats_2d[mask]
+            ax.scatter(
+                feats[:, 0],
+                feats[:, 1],
+                label=label,
+                alpha=args.alpha,
+                s=args.marker_size,
+                c=_COLOR_MAP[label],
+            )
+        ax.legend()
 
     fig_path = args.ckpt.with_suffix(f".{args.affinity_measure}.2d.pdf")
     fig.savefig(fig_path)
