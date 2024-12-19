@@ -104,3 +104,9 @@ class CoOccurrence:
         denominator = np.minimum(diag[:, None], diag[None])
 
         return hist / denominator
+
+    def compute_simple_matching_coef(self) -> np.ndarray:
+        numerator = self.M_00 + self.M_11
+        denominator = self.M_00 + self.M_11 + self.M_01 + self.M_10
+
+        return numerator / denominator
