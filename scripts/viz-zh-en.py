@@ -10,6 +10,7 @@ from src.utils.logging import setup_logger
 from src.viz.viz import Visualizer
 
 _LOGGER = setup_logger("script")
+_COLOR_MAP = {"zh": "#ff7f0e", "en": "#1f77b4"}
 
 
 @dataclass
@@ -210,7 +211,12 @@ def main(args: Args) -> None:
         mask = visualizer.masks[lbl]
         feats = visualizer.valid_feats_2d[mask]
         ax.scatter(
-            feats[:, 0], feats[:, 1], label=label, alpha=args.alpha, s=args.marker_size
+            feats[:, 0],
+            feats[:, 1],
+            label=label,
+            alpha=args.alpha,
+            s=args.marker_size,
+            c=_COLOR_MAP[label],
         )
     ax.legend()
 
