@@ -90,3 +90,10 @@ class CoOccurrence:
         denominator = diag[:, None] + diag[None] - hist
 
         return hist / denominator
+
+    def compute_dice_score(self) -> np.ndarray:
+        hist = self.hist_of_valid
+        diag = np.diag(hist)
+        denominator = diag[:, None] + diag[None]
+
+        return 2 * hist / denominator
