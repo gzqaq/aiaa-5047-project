@@ -15,6 +15,7 @@ _LOGGER = setup_logger("script")
 @dataclass
 class Args:
     ckpt: Path
+    seed: int
     zh_act: Path
     en_act: Path
     chunk_size: int
@@ -34,6 +35,9 @@ class Args:
             type=str,
             help="Path to checkpoint saved by flax.serialization",
             metavar="CKPT",
+        )
+        parser.add_argument(
+            "-seed", "--seed", default=42, type=int, help="Random seed", metavar="UINT"
         )
         parser.add_argument(
             "-zh",
@@ -135,6 +139,7 @@ class Args:
 
         return Args(
             ckpt=ckpt_path,
+            seed=args.seed,
             zh_act=zh_path,
             en_act=en_path,
             chunk_size=args.chunk_size,
@@ -149,6 +154,8 @@ class Args:
 
 
 def main(args: Args) -> None:
+    np.random.seed(args.seed)
+
     ckpt = SAECheckpoint.from_flax_bin(args.ckpt)
     _LOGGER.info(f"SAE weights loaded from {args.ckpt}")
     zh_act = np.load(args.zh_act)
