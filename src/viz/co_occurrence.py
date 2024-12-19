@@ -83,3 +83,10 @@ class CoOccurrence:
         )
 
         return numerator / denominator
+
+    def compute_jaccard_similarity(self) -> np.ndarray:
+        hist = self.hist_of_valid
+        diag = np.diag(hist)
+        denominator = diag[:, None] + diag[None] - hist
+
+        return hist / denominator
