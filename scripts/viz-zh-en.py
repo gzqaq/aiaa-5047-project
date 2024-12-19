@@ -177,6 +177,10 @@ def main(args: Args) -> None:
         log_path=args.log_path,
     )
 
+    # visualize 2d
+    visualizer.run_tsne()
+    assert visualizer.valid_feats_2d is not None
+
     # which label zh or en corresponds to
     sae_acts = np.array(ckpt.sae_fwd(activations)[1])
     sae_acts_on_valid = sae_acts[:, visualizer.valid_feats_mask]
@@ -192,10 +196,6 @@ def main(args: Args) -> None:
         n_chunks,
         args.chunk_size,
     )
-
-    # visualize 2d
-    visualizer.run_tsne()
-    assert visualizer.valid_feats_2d is not None
 
     fig, ax = plt.subplots(1, 1, figsize=args.figsize, dpi=args.dpi)
     for lbl in range(visualizer.cluster_alg.n_clusters):
