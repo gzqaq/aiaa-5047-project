@@ -254,6 +254,7 @@ def main(args: Args) -> None:
                 c=_COLOR_MAP[label],
             )
         ax.legend(markerscale=1 / args.marker_size)
+        ax.set_title(_TITLE_MAP[args.affinity_measure])
 
     fig_path = args.ckpt.with_suffix(f".{args.affinity_measure}.2d.pdf")
     fig.savefig(fig_path)
