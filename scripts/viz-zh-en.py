@@ -9,6 +9,8 @@ from src.utils.ckpt import SAECheckpoint
 from src.utils.logging import setup_logger
 from src.viz.viz import Visualizer
 
+_LOGGER = setup_logger("script")
+
 
 @dataclass
 class Args:
@@ -147,14 +149,12 @@ class Args:
 
 
 def main(args: Args) -> None:
-    logger = setup_logger("script")
-
     ckpt = SAECheckpoint.from_flax_bin(args.ckpt)
-    logger.info(f"SAE weights loaded from {args.ckpt}")
+    _LOGGER.info(f"SAE weights loaded from {args.ckpt}")
     zh_act = np.load(args.zh_act)
-    logger.info(f"Activations on Chinese texts loaded from {args.zh_act}")
+    _LOGGER.info(f"Activations on Chinese texts loaded from {args.zh_act}")
     en_act = np.load(args.en_act)
-    logger.info(f"Activations on English texts loaded from {args.en_act}")
+    _LOGGER.info(f"Activations on English texts loaded from {args.en_act}")
 
     if args.n_chunks > 0:
         n_chunks = args.n_chunks
@@ -164,7 +164,7 @@ def main(args: Args) -> None:
     zh_act = zh_act[: n_chunks * args.chunk_size]
     en_act = en_act[: n_chunks * args.chunk_size]
     activations = np.concatenate([zh_act, en_act], axis=0)
-    logger.info(f"Will use {len(activations)} activations")
+    _LOGGER.info(f"Will use {len(activations)} activations")
 
     visualizer = Visualizer(
         ckpt,
@@ -191,7 +191,6 @@ def main(args: Args) -> None:
         acts_on_valid,
         n_chunks,
         args.chunk_size,
-        logger,
     )
 
     # visualize 2d
@@ -210,7 +209,7 @@ def main(args: Args) -> None:
 
     fig_path = args.ckpt.with_suffix(f".{args.affinity_measure}.2d.pdf")
     fig.savefig(fig_path)
-    logger.info(f"Visualized in {fig_path}")
+    _LOGGER.info(f"Visualized in {fig_path}")
 
 
 def run_cluster_get_labels(
@@ -219,7 +218,6 @@ def run_cluster_get_labels(
     acts_on_valid: dict[str, np.ndarray],
     n_chunks: int,
     chunk_size: int,
-    logger,
 ) -> list[str]:
     """
     Run VISUALIZER.run_cluster with AFFINITY_MEASURE, and detect the order of zh and en as
@@ -246,16 +244,16 @@ def run_cluster_get_labels(
                 .mean(axis=(-2, -1)),
             )
         )
-        logger.debug(
+        _LOGGER.debug(
             "Proportion of chunks where label-0 features fire more "
             f"on {lang} texts: {lbl_0_activates_more[lang]}"
         )
 
     if lbl_0_activates_more["zh"] > lbl_0_activates_more["en"]:
-        logger.info("Label 0 corresponds to features firing on Chinese texts")
+        _LOGGER.info("Label 0 corresponds to features firing on Chinese texts")
         labels = ["zh", "en"]
     else:
-        logger.info("Label 1 corresponds to features firing on Chinese texts")
+        _LOGGER.info("Label 1 corresponds to features firing on Chinese texts")
         labels = ["en", "zh"]
 
     return labels
