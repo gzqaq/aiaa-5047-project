@@ -230,7 +230,7 @@ def main(args: Args) -> None:
                 )
                 axes[i].set_title(_TITLE_MAP[measure])
 
-        fig.legend(["en", "zh"], markerscale=1 / args.marker_size)
+        fig.legend(["en", "zh"], loc="right", markerscale=1 / args.marker_size)
     else:
         labels = run_cluster_get_labels(
             visualizer,
