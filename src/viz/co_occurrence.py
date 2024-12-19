@@ -97,3 +97,10 @@ class CoOccurrence:
         denominator = diag[:, None] + diag[None]
 
         return 2 * hist / denominator
+
+    def compute_overlap_coef(self) -> np.ndarray:
+        hist = self.hist_of_valid
+        diag = np.diag(hist)
+        denominator = np.minimum(diag[:, None], diag[None])
+
+        return hist / denominator
