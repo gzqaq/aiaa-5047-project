@@ -1,0 +1,32 @@
+#+title: Course Project for AIAA 5047 Responsible AI
+#+author: Ziqin Gong
+
+** Quick Start
+I recommend using [[https://docs.docker.com/get-started/][Docker]] to set up the environment. You can build an image using ~Dockerfile~ and
+launch a container using ~scripts/bash/docker-run.sh~ to tinker around, while ~scripts/bash/collect.sh~
+launches a container to collect activations by running ~scripts/collect-activations.py~, and
+~scripts/bash/train.sh~ launches a container to train a SAE by running ~scripts/train-sae.py~. Use ~-h~ or
+~--help~ to learn how to use these scripts.
+
+Alternatively, you can use [[https://python-poetry.org/][Poetry]] to create a virtual environment and install all the dependencies
+by
+#+begin_src shell
+poetry install .
+#+end_src
+Then use ~poetry run~ to run those Python scripts in ~scripts~.
+
+You can also create a virtual environment any way you like (e.g. ~conda create~) and use ~pip~ to set up
+the environment:
+#+begin_src shell
+pip install .
+#+end_src
+(It should work but hasn't been tested.)
+
+** Checkpoints and data
+Available only to people in HKUST (GZ) by [[https://hkustgz-my.sharepoint.com/:f:/g/personal/zgong681_connect_hkust-gz_edu_cn/EiyrNJGVR9FFrc3ySUI2XVkBEGtkhAxmcKkFyKfW1QUspw?e=8tCg4d][this link]].
+*** Checkpoints
+I store training dynamics and model parameters in a unified binary file using ~flax.serialization~,
+adhering to a consistent naming convention of ~l{layer}-d{sae_width}-zh-en-e{n_epochs}.bin~.
+*** Datasets
+It is impossible to share those 802G activations collected for training, so only part of them
+together with those for evaluation and the original Chinese and English text are made available.
