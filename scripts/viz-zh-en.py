@@ -176,7 +176,6 @@ def main(args: Args) -> None:
         run_tsne=False,
         log_path=args.log_path,
     )
-    visualizer.run_cluster(args.affinity_measure)
 
     # which label zh or en corresponds to
     sae_acts = np.array(ckpt.sae_fwd(activations)[1])
@@ -186,35 +185,14 @@ def main(args: Args) -> None:
         "en": sae_acts_on_valid[len(zh_act) :],
     }
 
-    acts_on_lbl: dict[str, dict[int, np.ndarray]] = {}
-    for lang in ["zh", "en"]:
-        acts_on_lbl[lang] = {}
-        for lbl in [0, 1]:
-            acts_on_lbl[lang][lbl] = acts_on_valid[lang][:, visualizer.masks[lbl]]
-
-    lbl_0_activates_more: dict[str, np.ndarray] = {}
-    for lang in ["zh", "en"]:
-        lbl_0_activates_more[lang] = np.mean(
-            np.greater(
-                acts_on_lbl[lang][0]
-                .reshape(n_chunks, args.chunk_size, -1)
-                .mean(axis=(-2, -1)),
-                acts_on_lbl[lang][1]
-                .reshape(n_chunks, args.chunk_size, -1)
-                .mean(axis=(-2, -1)),
-            )
-        )
-        logger.debug(
-            "Proportion of chunks where label-0 features fire more "
-            f"on {lang} texts: {lbl_0_activates_more[lang]}"
-        )
-
-    if lbl_0_activates_more["zh"] > lbl_0_activates_more["en"]:
-        logger.info("Label 0 corresponds to features firing on Chinese texts")
-        labels = ["zh", "en"]
-    else:
-        logger.info("Label 1 corresponds to features firing on Chinese texts")
-        labels = ["en", "zh"]
+    labels = run_cluster_get_labels(
+        visualizer,
+        args.affinity_measure,
+        acts_on_valid,
+        n_chunks,
+        args.chunk_size,
+        logger,
+    )
 
     # visualize 2d
     visualizer.run_tsne()
@@ -233,6 +211,54 @@ def main(args: Args) -> None:
     fig_path = args.ckpt.with_suffix(f".{args.affinity_measure}.2d.pdf")
     fig.savefig(fig_path)
     logger.info(f"Visualized in {fig_path}")
+
+
+def run_cluster_get_labels(
+    visualizer: Visualizer,
+    affinity_measure: str,
+    acts_on_valid: dict[str, np.ndarray],
+    n_chunks: int,
+    chunk_size: int,
+    logger,
+) -> list[str]:
+    """
+    Run VISUALIZER.run_cluster with AFFINITY_MEASURE, and detect the order of zh and en as
+    labels using ACTS_ON_VALID whose keys are zh and en, N_CHUNKS, and CHUNK_SIZE. Returns [zh, en]
+    or [en, zh].
+    """
+    visualizer.run_cluster(affinity_measure)
+
+    acts_on_lbl: dict[str, dict[int, np.ndarray]] = {}
+    for lang in ["zh", "en"]:
+        acts_on_lbl[lang] = {}
+        for lbl in [0, 1]:
+            acts_on_lbl[lang][lbl] = acts_on_valid[lang][:, visualizer.masks[lbl]]
+
+    lbl_0_activates_more: dict[str, np.ndarray] = {}
+    for lang in ["zh", "en"]:
+        lbl_0_activates_more[lang] = np.mean(
+            np.greater(
+                acts_on_lbl[lang][0]
+                .reshape(n_chunks, chunk_size, -1)
+                .mean(axis=(-2, -1)),
+                acts_on_lbl[lang][1]
+                .reshape(n_chunks, chunk_size, -1)
+                .mean(axis=(-2, -1)),
+            )
+        )
+        logger.debug(
+            "Proportion of chunks where label-0 features fire more "
+            f"on {lang} texts: {lbl_0_activates_more[lang]}"
+        )
+
+    if lbl_0_activates_more["zh"] > lbl_0_activates_more["en"]:
+        logger.info("Label 0 corresponds to features firing on Chinese texts")
+        labels = ["zh", "en"]
+    else:
+        logger.info("Label 1 corresponds to features firing on Chinese texts")
+        labels = ["en", "zh"]
+
+    return labels
 
 
 if __name__ == "__main__":
