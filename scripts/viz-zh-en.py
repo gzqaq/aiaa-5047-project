@@ -17,6 +17,7 @@ class Args:
     en_act: Path
     chunk_size: int
     n_chunks: int
+    affinity_measure: str
     log_path: Path | None
     figsize: tuple[float, float] = (6.4, 4.8)
     dpi: float = 100.0
@@ -63,6 +64,14 @@ class Args:
             type=int,
             help="Number of chunks per language to run. 0 means as many as possible",
             metavar="UINT",
+        )
+        parser.add_argument(
+            "-affinity",
+            "--affinity-measure",
+            default="phi-coef",
+            type=str,
+            help="Which affinity measure to use for clustering. Defaults to phi-coef",
+            metavar="MEASURE",
         )
         parser.add_argument(
             "-log",
@@ -128,6 +137,7 @@ class Args:
             en_act=en_path,
             chunk_size=args.chunk_size,
             n_chunks=args.n_chunks,
+            affinity_measure=args.affinity_measure,
             log_path=log_path,
             figsize=(w, h),
             dpi=args.dpi,
@@ -162,10 +172,11 @@ def main(args: Args) -> None:
         args.chunk_size,
         n_components=2,
         n_clusters=2,
-        run_cluster=True,
+        run_cluster=False,
         run_tsne=False,
         log_path=args.log_path,
     )
+    visualizer.run_cluster(args.affinity_measure)
 
     # which label zh or en corresponds to
     sae_acts = np.array(ckpt.sae_fwd(activations)[1])
@@ -219,7 +230,7 @@ def main(args: Args) -> None:
         )
     ax.legend()
 
-    fig_path = args.ckpt.with_suffix(".2d.pdf")
+    fig_path = args.ckpt.with_suffix(f".{args.affinity_measure}.2d.pdf")
     fig.savefig(fig_path)
     logger.info(f"Visualized in {fig_path}")
 
